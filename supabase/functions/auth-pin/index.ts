@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { action, username, pin } = await req.json();
+    const { action, username, pin, newPin } = await req.json();
 
     if (!username || !pin) {
       return new Response(JSON.stringify({ error: "Username and PIN are required" }), {
