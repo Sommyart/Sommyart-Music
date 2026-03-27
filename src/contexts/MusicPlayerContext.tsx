@@ -1,15 +1,20 @@
 import { createContext, useContext, ReactNode } from "react";
 import { useMusicPlayer } from "@/hooks/useMusicPlayer";
-import { tracks } from "@/lib/tracks";
+import { useSongsFromDB } from "@/hooks/useSongsFromDB";
 
-type PlayerContextType = ReturnType<typeof useMusicPlayer>;
+type PlayerContextType = ReturnType<typeof useMusicPlayer> & {
+  newestTrack: ReturnType<typeof useSongsFromDB>["newestTrack"];
+  songsLoading: boolean;
+};
 
 const MusicPlayerContext = createContext<PlayerContextType | null>(null);
 
 export function MusicPlayerProvider({ children }: { children: ReactNode }) {
-  const player = useMusicPlayer(tracks);
+  const { songs, loading, newestTrack } = useSongsFromDB();
+  const player = useMusicPlayer(songs);
+
   return (
-    <MusicPlayerContext.Provider value={player}>
+    <MusicPlayerContext.Provider value={{ ...player, newestTrack, songsLoading: loading }}>
       {children}
     </MusicPlayerContext.Provider>
   );
