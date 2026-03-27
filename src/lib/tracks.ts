@@ -4,8 +4,10 @@ export interface Track {
   artist: string;
   audioUrl: string;
   coverUrl: string;
+  uploadedAt?: string;
 }
 
+// Static fallback tracks — used when DB is empty or unavailable
 export const tracks: Track[] = [
   { id: "1", title: "Tu Es Belle Chi Baby", artist: "Sommyart", audioUrl: "/music/Tu_Es_Belle_Chi_Baby.mp3", coverUrl: "/images/logo.png" },
   { id: "2", title: "Anointed", artist: "Sommyart", audioUrl: "/music/Anointed.mp3", coverUrl: "/images/logo.png" },
@@ -26,11 +28,18 @@ export const tracks: Track[] = [
   { id: "17", title: "Oil Dey My Head", artist: "Sommyart", audioUrl: "/music/Oil_Dey_My_Head.mp3", coverUrl: "/images/logo.png" },
   { id: "18", title: "Overflow", artist: "Sommyart", audioUrl: "/music/Overflow.mp3", coverUrl: "/images/logo.png" },
   { id: "19", title: "Patience & Prayers", artist: "Sommyart", audioUrl: "/music/Patience_Prayers.mp3", coverUrl: "/images/logo.png" },
-  { id: "20", title: "Guitar Fireworks", artist: "Sommyart", audioUrl: "/music/Guitar_Fireworks.mp3", coverUrl: "/images/logo.png" },
-  { id: "21", title: "Guitar Fireworks (Remix)", artist: "Sommyart", audioUrl: "/music/Guitar_Fireworks_1.mp3", coverUrl: "/images/logo.png" },
-  { id: "22", title: "Sparking Vibes", artist: "Sommyart", audioUrl: "/music/Sparking_Vibes.mp3", coverUrl: "/images/logo.png" },
-  { id: "23", title: "Sparking Vibes (Remix)", artist: "Sommyart", audioUrl: "/music/Sparking_Vibes_1.mp3", coverUrl: "/images/logo.png" },
-  { id: "24", title: "On My Knees", artist: "Sommyart", audioUrl: "/music/ON_MY_KNEES_Track_5.mp3", coverUrl: "/images/logo.png" },
-  { id: "25", title: "Desert Prayer", artist: "Sommyart", audioUrl: "/music/Desert_Prayer_Track_8.mp3", coverUrl: "/images/logo.png" },
-  { id: "26", title: "Brilliance in the Pit", artist: "Sommyart", audioUrl: "/music/Brilliance_in_the_Pit_Track_9.mp3", coverUrl: "/images/logo.png" },
+  { id: "20", title: "Slippery", artist: "Sommyart", audioUrl: "/music/Slippery.mp3", coverUrl: "/images/logo.png" },
+  { id: "21", title: "Soul in the Trap", artist: "Sommyart", audioUrl: "/music/Soul_in_the_Trap.mp3", coverUrl: "/images/logo.png" },
+  { id: "22", title: "Survival Instinct", artist: "Sommyart", audioUrl: "/music/Survival_Instinct.mp3", coverUrl: "/images/logo.png" },
+  { id: "23", title: "The Colors of the Cove", artist: "Sommyart", audioUrl: "/music/The_Colors_of_the_Cove.mp3", coverUrl: "/images/logo.png" },
+  { id: "24", title: "Number One Cool Bliss", artist: "Sommyart", audioUrl: "/music/Number_One_Cool_Bliss.mp3", coverUrl: "/images/logo.png" },
+  { id: "25", title: "Omalicha Nwa", artist: "Sommyart", audioUrl: "/music/Omalicha_Nwa.mp3", coverUrl: "/images/logo.png" },
+  { id: "26", title: "Princess Keisha", artist: "Sommyart", audioUrl: "/music/Princess_Keisha.mp3", coverUrl: "/images/logo.png" },
+  { id: "27", title: "Guitar Fireworks", artist: "Sommyart", audioUrl: "/music/Guitar_Fireworks.mp3", coverUrl: "/images/logo.png" },
+  { id: "28", title: "Guitar Fireworks (Remix)", artist: "Sommyart", audioUrl: "/music/Guitar_Fireworks_1.mp3", coverUrl: "/images/logo.png" },
+  { id: "29", title: "Sparking Vibes", artist: "Sommyart", audioUrl: "/music/Sparking_Vibes.mp3", coverUrl: "/images/logo.png" },
+  { id: "30", title: "Sparking Vibes (Remix)", artist: "Sommyart", audioUrl: "/music/Sparking_Vibes_1.mp3", coverUrl: "/images/logo.png" },
+  { id: "31", title: "On My Knees", artist: "Sommyart", audioUrl: "/music/ON_MY_KNEES_Track_5.mp3", coverUrl: "/images/logo.png" },
+  { id: "32", title: "Desert Prayer", artist: "Sommyart", audioUrl: "/music/Desert_Prayer_Track_8.mp3", coverUrl: "/images/logo.png" },
+  { id: "33", title: "Brilliance in the Pit", artist: "Sommyart", audioUrl: "/music/Brilliance_in_the_Pit_Track_9.mp3", coverUrl: "/images/logo.png" },
 ];
