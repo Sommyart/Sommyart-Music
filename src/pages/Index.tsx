@@ -3,12 +3,11 @@ import { HeroSection } from "@/components/hero/HeroSection";
 import { useMusicPlayerContext } from "@/contexts/MusicPlayerContext";
 
 const Index = () => {
-  const { currentTrackIndex, isPlaying, playTrack, newestTrack, songsLoading } = useMusicPlayerContext();
+  const { playlist, currentTrackIndex, isPlaying, playTrack, newestTrack, songsLoading } = useMusicPlayerContext();
 
-  // Find the index of the newest track for playback
   const handlePlayNewest = () => {
     if (newestTrack) {
-      playTrack(0); // newest is first since sorted by uploaded_at desc
+      playTrack(0);
     }
   };
 
@@ -55,30 +54,21 @@ const Index = () => {
           </div>
         ) : (
           <div className="space-y-1">
-            {/* We get songs from the context player which uses useSongsFromDB */}
-            <TracksListFromContext />
+            {playlist.map((track, i) => (
+              <TrackItem
+                key={track.id}
+                track={track}
+                index={i}
+                isActive={currentTrackIndex === i}
+                isPlaying={currentTrackIndex === i && isPlaying}
+                onPlay={() => playTrack(i)}
+              />
+            ))}
           </div>
         )}
       </section>
     </div>
   );
 };
-
-function TracksListFromContext() {
-  const { currentTrack, currentTrackIndex, isPlaying, playTrack } = useMusicPlayerContext();
-
-  // Access playlist through currentTrack's parent — we re-derive from context
-  // The player hook exposes tracks indirectly. We need the full list.
-  // Let's use useSongsFromDB directly here.
-  return <TracksListDirect />;
-}
-
-function TracksListDirect() {
-  const { currentTrackIndex, isPlaying, playTrack } = useMusicPlayerContext();
-  const { songs } = require("@/hooks/useSongsFromDB").useSongsFromDB ? { songs: [] } : { songs: [] };
-
-  // We can't call useSongsFromDB again (double fetch). Instead, let's expose playlist from context.
-  return null;
-}
 
 export default Index;

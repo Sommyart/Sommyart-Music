@@ -23,7 +23,6 @@ export function useMusicPlayer(playlist: Track[]) {
     });
   }, [currentTrack?.audioUrl]);
 
-  // Build an enriched track with extracted cover
   const enrichedTrack = currentTrack
     ? { ...currentTrack, coverUrl: extractedCover || currentTrack.coverUrl }
     : null;
@@ -31,15 +30,10 @@ export function useMusicPlayer(playlist: Track[]) {
   useEffect(() => {
     const audio = new Audio();
     audioRef.current = audio;
-
     audio.addEventListener("timeupdate", () => setCurrentTime(audio.currentTime));
     audio.addEventListener("loadedmetadata", () => setDuration(audio.duration));
     audio.addEventListener("ended", () => handleNext());
-
-    return () => {
-      audio.pause();
-      audio.src = "";
-    };
+    return () => { audio.pause(); audio.src = ""; };
   }, []);
 
   useEffect(() => {
@@ -52,13 +46,8 @@ export function useMusicPlayer(playlist: Track[]) {
   const togglePlay = useCallback(() => {
     const audio = audioRef.current;
     if (!audio) return;
-    if (isPlaying) {
-      audio.pause();
-      setIsPlaying(false);
-    } else {
-      audio.play().catch(() => {});
-      setIsPlaying(true);
-    }
+    if (isPlaying) { audio.pause(); setIsPlaying(false); }
+    else { audio.play().catch(() => {}); setIsPlaying(true); }
   }, [isPlaying]);
 
   const handleNext = useCallback(() => {
@@ -78,10 +67,7 @@ export function useMusicPlayer(playlist: Track[]) {
 
   const handlePrev = useCallback(() => {
     const audio = audioRef.current;
-    if (audio && audio.currentTime > 3) {
-      audio.currentTime = 0;
-      return;
-    }
+    if (audio && audio.currentTime > 3) { audio.currentTime = 0; return; }
     setCurrentTrackIndex((i) => (i - 1 + playlist.length) % playlist.length);
   }, [playlist.length]);
 
@@ -96,6 +82,7 @@ export function useMusicPlayer(playlist: Track[]) {
   }, []);
 
   return {
+    playlist,
     currentTrack: enrichedTrack,
     currentTrackIndex,
     isPlaying,
