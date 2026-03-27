@@ -119,10 +119,12 @@ serve(async (req) => {
     }
 
     if (action === "reset_pin") {
-      const { newPin } = await req.json().catch(() => ({}));
-      // For reset, we need the new PIN
       if (!newPin || !/^\d{4}$/.test(newPin)) {
         return new Response(JSON.stringify({ error: "New PIN must be exactly 4 digits" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
