@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Track } from "@/lib/tracks";
+import { extractCoverArt } from "@/lib/extractCoverArt";
 
 export function useMusicPlayer(playlist: Track[]) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -9,8 +10,23 @@ export function useMusicPlayer(playlist: Track[]) {
   const [duration, setDuration] = useState(0);
   const [shuffle, setShuffle] = useState(false);
   const [repeat, setRepeat] = useState<"off" | "all" | "one">("off");
+  const [extractedCover, setExtractedCover] = useState<string | null>(null);
 
   const currentTrack = playlist[currentTrackIndex] || null;
+
+  // Extract embedded cover art when track changes
+  useEffect(() => {
+    if (!currentTrack) return;
+    setExtractedCover(null);
+    extractCoverArt(currentTrack.audioUrl).then((cover) => {
+      if (cover) setExtractedCover(cover);
+    });
+  }, [currentTrack?.audioUrl]);
+
+  // Build an enriched track with extracted cover
+  const enrichedTrack = currentTrack
+    ? { ...currentTrack, coverUrl: extractedCover || currentTrack.coverUrl }
+    : null;
 
   useEffect(() => {
     const audio = new Audio();
@@ -80,7 +96,7 @@ export function useMusicPlayer(playlist: Track[]) {
   }, []);
 
   return {
-    currentTrack,
+    currentTrack: enrichedTrack,
     currentTrackIndex,
     isPlaying,
     currentTime,
