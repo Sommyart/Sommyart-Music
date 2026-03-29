@@ -1,4 +1,4 @@
-import { Play, Pause } from "lucide-react";
+import { Play, Pause, SkipBack, SkipForward } from "lucide-react";
 import { Track } from "@/lib/tracks";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
@@ -7,9 +7,11 @@ interface Props {
   track: Track | null;
   isPlaying: boolean;
   onTogglePlay: () => void;
+  onNext: () => void;
+  onPrev: () => void;
 }
 
-export function MiniPlayer({ track, isPlaying, onTogglePlay }: Props) {
+export function MiniPlayer({ track, isPlaying, onTogglePlay, onNext, onPrev }: Props) {
   const navigate = useNavigate();
   const [expanding, setExpanding] = useState(false);
 
@@ -54,19 +56,26 @@ export function MiniPlayer({ track, isPlaying, onTogglePlay }: Props) {
           <p className="text-xs text-muted-foreground truncate">{track.artist}</p>
         </div>
 
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onTogglePlay();
-          }}
-          className="w-10 h-10 rounded-full flex items-center justify-center bg-primary text-primary-foreground neon-glow transition-all duration-300 hover:scale-105 active:scale-95"
-        >
-          {isPlaying ? (
-            <Pause size={18} fill="currentColor" />
-          ) : (
-            <Play size={18} fill="currentColor" className="ml-0.5" />
-          )}
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={(e) => { e.stopPropagation(); onPrev(); }}
+            className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors active:scale-95"
+          >
+            <SkipBack size={16} fill="currentColor" />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onTogglePlay(); }}
+            className="w-10 h-10 rounded-full flex items-center justify-center bg-primary text-primary-foreground neon-glow transition-all duration-300 hover:scale-105 active:scale-95"
+          >
+            {isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" className="ml-0.5" />}
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onNext(); }}
+            className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors active:scale-95"
+          >
+            <SkipForward size={16} fill="currentColor" />
+          </button>
+        </div>
       </div>
     </div>
   );
