@@ -11,7 +11,7 @@ interface Props {
   onPrev: () => void;
 }
 
-export function MiniPlayer({ track, isPlaying, onTogglePlay }: Props) {
+export function MiniPlayer({ track, isPlaying, onTogglePlay, onNext, onPrev }: Props) {
   const navigate = useNavigate();
   const [expanding, setExpanding] = useState(false);
 
