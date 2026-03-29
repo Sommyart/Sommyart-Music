@@ -13,9 +13,10 @@ interface Props {
 
 export function MiniPlayer({ track, isPlaying, onTogglePlay, onNext, onPrev }: Props) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [expanding, setExpanding] = useState(false);
 
-  if (!track) return null;
+  if (!track || location.pathname === "/player") return null;
 
   const handleExpand = () => {
     setExpanding(true);
