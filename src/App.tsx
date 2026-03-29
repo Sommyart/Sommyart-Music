@@ -16,7 +16,7 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 function AppShell() {
-  const { currentTrack, isPlaying, togglePlay } = useMusicPlayerContext();
+  const { currentTrack, isPlaying, togglePlay, handleNext, handlePrev } = useMusicPlayerContext();
   return (
     <>
       <Routes>
@@ -26,7 +26,7 @@ function AppShell() {
         <Route path="/downloads" element={<DownloadsScreen />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
-      <MiniPlayer track={currentTrack} isPlaying={isPlaying} onTogglePlay={togglePlay} />
+      <MiniPlayer track={currentTrack} isPlaying={isPlaying} onTogglePlay={togglePlay} onNext={handleNext} onPrev={handlePrev} />
       <BottomNav />
     </>
   );
