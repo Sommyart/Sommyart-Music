@@ -1,6 +1,6 @@
 import { Play, Pause, SkipBack, SkipForward } from "lucide-react";
 import { Track } from "@/lib/tracks";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useState } from "react";
 
 interface Props {
