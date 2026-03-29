@@ -1,6 +1,6 @@
 import { Play, Pause, SkipBack, SkipForward } from "lucide-react";
 import { Track } from "@/lib/tracks";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useState } from "react";
 
 interface Props {
@@ -13,9 +13,10 @@ interface Props {
 
 export function MiniPlayer({ track, isPlaying, onTogglePlay, onNext, onPrev }: Props) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [expanding, setExpanding] = useState(false);
 
-  if (!track) return null;
+  if (!track || location.pathname === "/player") return null;
 
   const handleExpand = () => {
     setExpanding(true);
