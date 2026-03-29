@@ -1,4 +1,4 @@
-import { Play, Pause } from "lucide-react";
+import { Play, Pause, SkipBack, SkipForward } from "lucide-react";
 import { Track } from "@/lib/tracks";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
@@ -7,6 +7,8 @@ interface Props {
   track: Track | null;
   isPlaying: boolean;
   onTogglePlay: () => void;
+  onNext: () => void;
+  onPrev: () => void;
 }
 
 export function MiniPlayer({ track, isPlaying, onTogglePlay }: Props) {
