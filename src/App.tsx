@@ -40,6 +40,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <MusicPlayerProvider>
+          <InstallPrompt />
           <AppShell />
         </MusicPlayerProvider>
       </BrowserRouter>
