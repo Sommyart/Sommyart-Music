@@ -12,6 +12,7 @@ import PlayerScreen from "./pages/PlayerScreen";
 import PlaylistScreen from "./pages/PlaylistScreen";
 import DownloadsScreen from "./pages/DownloadsScreen";
 import NotFound from "./pages/NotFound";
+import InstallPrompt from "./components/InstallPrompt";
 
 const queryClient = new QueryClient();
 
@@ -39,6 +40,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <MusicPlayerProvider>
+          <InstallPrompt />
           <AppShell />
         </MusicPlayerProvider>
       </BrowserRouter>
