@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Track, tracks as staticTracks } from "@/lib/tracks";
+import { Track, tracks as staticTracks, kosherTracks as staticKosherTracks } from "@/lib/tracks";
 
 /**
  * Fetches songs from the database, falling back to static tracks.
@@ -46,5 +46,8 @@ export function useSongsFromDB() {
     fetchSongs();
   }, [fetchSongs]);
 
-  return { songs, loading, newestTrack, refetch: fetchSongs };
+  // Combine all tracks for the full playlist (used by the player)
+  const allSongs = [...songs, ...staticKosherTracks.filter(kt => !songs.some(s => s.id === kt.id))];
+
+  return { songs, allSongs, kosherTracks: staticKosherTracks, loading, newestTrack, refetch: fetchSongs };
 }
