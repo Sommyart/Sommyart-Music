@@ -5,6 +5,7 @@ export interface Track {
   audioUrl: string;
   coverUrl: string;
   uploadedAt?: string;
+  category?: string;
 }
 
 // Static fallback tracks — sorted alphabetically by title
@@ -43,4 +44,13 @@ export const tracks: Track[] = [
   { id: "22", title: "Survival Instinct", artist: "Sommyart", audioUrl: "/music/Survival_Instinct.mp3", coverUrl: "/images/logo.png" },
   { id: "23", title: "The Colors of the Cove", artist: "Sommyart", audioUrl: "/music/The_Colors_of_the_Cove.mp3", coverUrl: "/images/logo.png" },
   { id: "1", title: "Tu Es Belle Chi Baby", artist: "Sommyart", audioUrl: "/music/Tu_Es_Belle_Chi_Baby.mp3", coverUrl: "/images/logo.png" },
+];
+
+// Kosher Music tracks — sorted alphabetically
+export const kosherTracks: Track[] = [
+  { id: "k1", title: "Adonai Echad (The One)", artist: "Sommyart", audioUrl: "/music/Adonai_Echad_The_One.mp3", coverUrl: "/images/logo.png", category: "kosher" },
+  { id: "k2", title: "Baruch Hashem Adonai", artist: "Sommyart", audioUrl: "/music/Baruch_Hashem_Adonai_Afro-Hebrew_Worship.mp3", coverUrl: "/images/logo.png", category: "kosher" },
+  { id: "k3", title: "Kadosh Adonai (Weight of Glory)", artist: "Sommyart", audioUrl: "/music/Kadosh_Adonai_Weight_of_Glory.mp3", coverUrl: "/images/logo.png", category: "kosher" },
+  { id: "k4", title: "Return to Hashem", artist: "Sommyart", audioUrl: "/music/Return_to_Hashem_Track_3.mp3", coverUrl: "/images/logo.png", category: "kosher" },
+  { id: "k5", title: "Shabbat Shalom (Sacred Stillness)", artist: "Sommyart", audioUrl: "/music/Shabbat_Shalom_Sacred_Stillness.mp3", coverUrl: "/images/logo.png", category: "kosher" },
 ];
