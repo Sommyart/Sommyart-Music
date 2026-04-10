@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { Search, X } from "lucide-react";
+import { Search, X, Star } from "lucide-react";
 import { TrackItem } from "@/components/playlist/TrackItem";
 import { HeroSection } from "@/components/hero/HeroSection";
 import { useMusicPlayerContext } from "@/contexts/MusicPlayerContext";
 
 const Index = () => {
-  const { playlist, currentTrackIndex, isPlaying, playTrack, newestTrack, songsLoading } = useMusicPlayerContext();
+  const { playlist, currentTrackIndex, isPlaying, playTrack, newestTrack, songsLoading, kosherTracks, mainTracks } = useMusicPlayerContext();
   const [searchQuery, setSearchQuery] = useState("");
 
   const handlePlayNewest = () => {
@@ -14,10 +14,15 @@ const Index = () => {
     }
   };
 
-  const filteredTracks = playlist.filter((track) => {
-    const q = searchQuery.toLowerCase();
-    return track.title.toLowerCase().includes(q) || track.artist.toLowerCase().includes(q);
-  });
+  const q = searchQuery.toLowerCase();
+
+  const filteredMainTracks = mainTracks.filter((track) =>
+    track.title.toLowerCase().includes(q) || track.artist.toLowerCase().includes(q)
+  );
+
+  const filteredKosherTracks = kosherTracks.filter((track) =>
+    track.title.toLowerCase().includes(q) || track.artist.toLowerCase().includes(q)
+  );
 
   return (
     <div className="min-h-screen pb-36">
@@ -73,20 +78,51 @@ const Index = () => {
         </div>
       </div>
 
+      {/* Kosher Music Section */}
+      {filteredKosherTracks.length > 0 && (
+        <section className="px-4 mb-6">
+          <div className="flex items-center gap-2 mb-4 px-2">
+            <Star className="w-4 h-4 text-primary" />
+            <h2 className="text-sm font-display tracking-widest text-primary">
+              KOSHER MUSIC
+            </h2>
+          </div>
+          <div className="space-y-1">
+            {filteredKosherTracks.map((track) => {
+              const originalIndex = playlist.findIndex((t) => t.id === track.id);
+              return (
+                <TrackItem
+                  key={track.id}
+                  track={track}
+                  index={originalIndex}
+                  isActive={currentTrackIndex === originalIndex}
+                  isPlaying={currentTrackIndex === originalIndex && isPlaying}
+                  onPlay={() => playTrack(originalIndex)}
+                />
+              );
+            })}
+          </div>
+          {/* Divider after Kosher section */}
+          <div className="mt-4">
+            <div className="h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
+          </div>
+        </section>
+      )}
+
       {/* All Tracks */}
       <section className="px-4">
         <h2 className="text-sm font-display tracking-widest text-primary mb-4 px-2">
-          ALL TRACKS {searchQuery && `(${filteredTracks.length})`}
+          ALL TRACKS {searchQuery && `(${filteredMainTracks.length})`}
         </h2>
         {songsLoading ? (
           <div className="flex justify-center py-8">
             <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
           </div>
-        ) : filteredTracks.length === 0 ? (
+        ) : filteredMainTracks.length === 0 ? (
           <p className="text-center text-sm text-muted-foreground py-8">No tracks found</p>
         ) : (
           <div className="space-y-1">
-            {filteredTracks.map((track) => {
+            {filteredMainTracks.map((track) => {
               const originalIndex = playlist.findIndex((t) => t.id === track.id);
               return (
                 <TrackItem
