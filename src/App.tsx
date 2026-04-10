@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { MusicPlayerProvider } from "@/contexts/MusicPlayerContext";
+import { DownloadProvider } from "@/contexts/DownloadContext";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { MiniPlayer } from "@/components/layout/MiniPlayer";
 import { useMusicPlayerContext } from "@/contexts/MusicPlayerContext";
@@ -40,8 +41,10 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <MusicPlayerProvider>
-          <InstallPrompt />
-          <AppShell />
+          <DownloadProvider>
+            <InstallPrompt />
+            <AppShell />
+          </DownloadProvider>
         </MusicPlayerProvider>
       </BrowserRouter>
     </TooltipProvider>

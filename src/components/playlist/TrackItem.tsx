@@ -1,7 +1,8 @@
-import { Play, Pause } from "lucide-react";
+import { Play, Pause, Download, Check, Loader2 } from "lucide-react";
 import { Track } from "@/lib/tracks";
 import { useState, useEffect } from "react";
 import { extractCoverArt } from "@/lib/extractCoverArt";
+import { useDownloadContext } from "@/contexts/DownloadContext";
 
 interface Props {
   track: Track;
@@ -13,6 +14,7 @@ interface Props {
 
 export function TrackItem({ track, index, isActive, isPlaying, onPlay }: Props) {
   const [cover, setCover] = useState<string | null>(null);
+  const { downloadTrack, isDownloaded, isDownloading } = useDownloadContext();
 
   useEffect(() => {
     extractCoverArt(track.audioUrl).then((c) => {
@@ -21,11 +23,20 @@ export function TrackItem({ track, index, isActive, isPlaying, onPlay }: Props) 
   }, [track.audioUrl]);
 
   const displayCover = cover || track.coverUrl;
+  const downloaded = isDownloaded(track.id);
+  const downloading = isDownloading(track.id);
+
+  const handleDownload = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!downloaded && !downloading) {
+      downloadTrack(track);
+    }
+  };
 
   return (
     <button
       onClick={onPlay}
-      className={`w-full flex items-center gap-4 p-3 rounded-xl transition-all ${
+      className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${
         isActive ? "glass neon-border" : "hover:bg-secondary/50"
       }`}
     >
@@ -38,6 +49,27 @@ export function TrackItem({ track, index, isActive, isPlaying, onPlay }: Props) 
         </p>
         <p className="text-xs text-muted-foreground truncate">{track.artist}</p>
       </div>
+      {/* Download button */}
+      <div
+        onClick={handleDownload}
+        className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${
+          downloaded
+            ? "text-green-400"
+            : downloading
+            ? "text-primary animate-spin"
+            : "text-muted-foreground hover:text-primary"
+        }`}
+        title={downloaded ? "Downloaded" : downloading ? "Downloading..." : "Download for offline"}
+      >
+        {downloaded ? (
+          <Check size={14} />
+        ) : downloading ? (
+          <Loader2 size={14} />
+        ) : (
+          <Download size={14} />
+        )}
+      </div>
+      {/* Play/Pause */}
       <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isActive ? "text-primary" : "text-muted-foreground"}`}>
         {isActive && isPlaying ? <Pause size={16} /> : <Play size={16} className="ml-0.5" />}
       </div>
