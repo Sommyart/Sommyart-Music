@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Search, X, Star } from "lucide-react";
+import { Search, X, Star, ChevronDown } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { TrackItem } from "@/components/playlist/TrackItem";
 import { HeroSection } from "@/components/hero/HeroSection";
 import { useMusicPlayerContext } from "@/contexts/MusicPlayerContext";
@@ -81,28 +82,33 @@ const Index = () => {
       {/* Kosher Music Section */}
       {filteredKosherTracks.length > 0 && (
         <section className="px-4 mb-6">
-          <div className="flex items-center gap-2 mb-4 px-2">
-            <Star className="w-4 h-4 text-primary" />
-            <h2 className="text-sm font-display tracking-widest text-primary">
-              KOSHER MUSIC
-            </h2>
-          </div>
-          <div className="space-y-1">
-            {filteredKosherTracks.map((track) => {
-              const originalIndex = playlist.findIndex((t) => t.id === track.id);
-              return (
-                <TrackItem
-                  key={track.id}
-                  track={track}
-                  index={originalIndex}
-                  isActive={currentTrackIndex === originalIndex}
-                  isPlaying={currentTrackIndex === originalIndex && isPlaying}
-                  onPlay={() => playTrack(originalIndex)}
-                />
-              );
-            })}
-          </div>
-          {/* Divider after Kosher section */}
+          <Collapsible defaultOpen={false}>
+            <CollapsibleTrigger className="flex items-center gap-2 mb-4 px-2 w-full group">
+              <Star className="w-4 h-4 text-primary" />
+              <h2 className="text-sm font-display tracking-widest text-primary">
+                KOSHER MUSIC
+              </h2>
+              <span className="text-xs text-muted-foreground">({filteredKosherTracks.length})</span>
+              <ChevronDown className="w-4 h-4 text-primary ml-auto transition-transform group-data-[state=open]:rotate-180" />
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="space-y-1">
+                {filteredKosherTracks.map((track) => {
+                  const originalIndex = playlist.findIndex((t) => t.id === track.id);
+                  return (
+                    <TrackItem
+                      key={track.id}
+                      track={track}
+                      index={originalIndex}
+                      isActive={currentTrackIndex === originalIndex}
+                      isPlaying={currentTrackIndex === originalIndex && isPlaying}
+                      onPlay={() => playTrack(originalIndex)}
+                    />
+                  );
+                })}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
           <div className="mt-4">
             <div className="h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
           </div>

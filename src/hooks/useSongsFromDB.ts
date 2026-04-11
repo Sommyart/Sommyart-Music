@@ -4,7 +4,7 @@ import { Track, tracks as staticTracks, kosherTracks as staticKosherTracks } fro
 
 /**
  * Fetches songs from the database, falling back to static tracks.
- * Always refetches on mount so new uploads appear immediately.
+ * Auto-refreshes when the browser comes back online.
  */
 export function useSongsFromDB() {
   const [songs, setSongs] = useState<Track[]>(staticTracks);
@@ -46,7 +46,15 @@ export function useSongsFromDB() {
     fetchSongs();
   }, [fetchSongs]);
 
-  // Combine all tracks for the full playlist (used by the player)
+  // Auto-refresh when browser comes back online
+  useEffect(() => {
+    const handleOnline = () => {
+      fetchSongs();
+    };
+    window.addEventListener("online", handleOnline);
+    return () => window.removeEventListener("online", handleOnline);
+  }, [fetchSongs]);
+
   const allSongs = [...songs, ...staticKosherTracks.filter(kt => !songs.some(s => s.id === kt.id))];
 
   return { songs, allSongs, kosherTracks: staticKosherTracks, loading, newestTrack, refetch: fetchSongs };
