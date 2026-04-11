@@ -3,6 +3,7 @@ import { Search, X, Star, ChevronDown } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { TrackItem } from "@/components/playlist/TrackItem";
 import { HeroSection } from "@/components/hero/HeroSection";
+import { AdBanner } from "@/components/hero/AdBanner";
 import { useMusicPlayerContext } from "@/contexts/MusicPlayerContext";
 
 const Index = () => {
