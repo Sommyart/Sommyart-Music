@@ -1,3 +1,4 @@
+import { useRef, useEffect } from "react";
 import { Track } from "@/lib/tracks";
 
 interface Props {
@@ -6,6 +7,18 @@ interface Props {
 }
 
 export function HolographicArtwork({ track, isPlaying }: Props) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (isPlaying) {
+      video.play().catch(() => {});
+    } else {
+      video.pause();
+    }
+  }, [isPlaying]);
+
   return (
     <div className="relative flex items-center justify-center py-8" style={{ height: 280 }}>
       {/* Volumetric light rays */}
@@ -30,24 +43,6 @@ export function HolographicArtwork({ track, isPlaying }: Props) {
         }`}
       />
 
-      {/* Particle dots */}
-      {isPlaying && (
-        <>
-          {[...Array(6)].map((_, i) => (
-            <div
-              key={i}
-              className="absolute w-1 h-1 rounded-full bg-primary/60 animate-float"
-              style={{
-                left: `${30 + Math.sin(i * 1.05) * 40}%`,
-                top: `${20 + Math.cos(i * 1.2) * 35}%`,
-                animationDelay: `${i * 0.4}s`,
-                animationDuration: `${2.5 + i * 0.3}s`,
-              }}
-            />
-          ))}
-        </>
-      )}
-
       {/* Glow backdrop */}
       <div
         className={`absolute w-48 h-48 rounded-full blur-3xl transition-opacity duration-700 ${
@@ -55,23 +50,20 @@ export function HolographicArtwork({ track, isPlaying }: Props) {
         }`}
         style={{ background: "hsla(186,100%,50%,0.1)" }}
       />
-      <div
-        className={`absolute w-40 h-40 rounded-full blur-2xl transition-opacity duration-700 ${
-          isPlaying ? "opacity-80" : "opacity-20"
-        }`}
-        style={{ background: "hsla(260,100%,65%,0.1)" }}
-      />
 
-      {/* Floating holographic album art — projection height 140px */}
+      {/* Floating holographic video */}
       <div
         className={`relative rounded-2xl overflow-hidden neon-border transition-all duration-700 ${
           isPlaying ? "animate-float neon-glow scale-100" : "opacity-70 scale-95"
         }`}
         style={{ width: 180, height: 180 }}
       >
-        <img
-          src={track?.coverUrl || "/images/logo.png"}
-          alt={track?.title || "Sommyart Music"}
+        <video
+          ref={videoRef}
+          src="/videos/player-bg.mp4"
+          muted
+          loop
+          playsInline
           className="w-full h-full object-cover"
         />
         <div className="absolute inset-0 holographic-shimmer" />
