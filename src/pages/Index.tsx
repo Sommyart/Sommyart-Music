@@ -44,6 +44,9 @@ const Index = () => {
         </div>
       </div>
 
+      {/* Ad Banner */}
+      <AdBanner />
+
       {/* Hero — Newest Track */}
       {newestTrack && (
         <HeroSection
