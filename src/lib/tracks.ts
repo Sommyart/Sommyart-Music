@@ -44,6 +44,9 @@ export const tracks: Track[] = [
   { id: "22", title: "Survival Instinct", artist: "Sommyart", audioUrl: "/music/Survival_Instinct.mp3", coverUrl: "/images/logo.png" },
   { id: "23", title: "The Colors of the Cove", artist: "Sommyart", audioUrl: "/music/The_Colors_of_the_Cove.mp3", coverUrl: "/images/logo.png" },
   { id: "1", title: "Tu Es Belle Chi Baby", artist: "Sommyart", audioUrl: "/music/Tu_Es_Belle_Chi_Baby.mp3", coverUrl: "/images/logo.png" },
+  { id: "35", title: "Ịhụnanya m (My Love)", artist: "Sommyart", audioUrl: "/music/Ihunanya_m_My_Love_v2.mp3", coverUrl: "/images/logo.png" },
+  { id: "36", title: "Ita Kaɗai (My Baby Girl)", artist: "Sommyart", audioUrl: "/music/Ita_Kadai_My_Baby_Girl.mp3", coverUrl: "/images/logo.png" },
+  { id: "37", title: "Na ɓace (Lost in You)", artist: "Sommyart", audioUrl: "/music/Na_bace_Lost_in_You.m4a", coverUrl: "/images/logo.png" },
 ];
 
 // Kosher Music tracks — sorted alphabetically
