@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { MusicPlayerProvider } from "@/contexts/MusicPlayerContext";
 import { DownloadProvider } from "@/contexts/DownloadContext";
+import { FavouritesProvider } from "@/contexts/FavouritesContext";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { MiniPlayer } from "@/components/layout/MiniPlayer";
 import { useMusicPlayerContext } from "@/contexts/MusicPlayerContext";
@@ -42,8 +43,10 @@ const App = () => (
       <BrowserRouter>
         <MusicPlayerProvider>
           <DownloadProvider>
-            <InstallPrompt />
-            <AppShell />
+            <FavouritesProvider>
+              <InstallPrompt />
+              <AppShell />
+            </FavouritesProvider>
           </DownloadProvider>
         </MusicPlayerProvider>
       </BrowserRouter>
