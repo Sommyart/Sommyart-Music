@@ -31,6 +31,7 @@ export function useSongsFromDB() {
           coverUrl: s.cover_art_url || "/images/logo.png",
           uploadedAt: s.uploaded_at,
         }));
+        mapped.sort((a, b) => a.title.localeCompare(b.title));
         setSongs(mapped);
         setNewestTrack(mapped[0] || null);
       }
