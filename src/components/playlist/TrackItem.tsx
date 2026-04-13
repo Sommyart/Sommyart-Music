@@ -1,8 +1,9 @@
-import { Play, Pause, Download, Check, Loader2 } from "lucide-react";
+import { Play, Pause, Download, Check, Loader2, Heart } from "lucide-react";
 import { Track } from "@/lib/tracks";
 import { useState, useEffect } from "react";
 import { extractCoverArt } from "@/lib/extractCoverArt";
 import { useDownloadContext } from "@/contexts/DownloadContext";
+import { useFavouritesContext } from "@/contexts/FavouritesContext";
 
 interface Props {
   track: Track;
@@ -15,6 +16,7 @@ interface Props {
 export function TrackItem({ track, index, isActive, isPlaying, onPlay }: Props) {
   const [cover, setCover] = useState<string | null>(null);
   const { downloadTrack, isDownloaded, isDownloading } = useDownloadContext();
+  const { isFavourite, toggleFavourite } = useFavouritesContext();
 
   useEffect(() => {
     extractCoverArt(track.audioUrl).then((c) => {
@@ -33,6 +35,13 @@ export function TrackItem({ track, index, isActive, isPlaying, onPlay }: Props) 
     }
   };
 
+  const handleFavourite = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    toggleFavourite(track.id);
+  };
+
+  const fav = isFavourite(track.id);
+
   return (
     <button
       onClick={onPlay}
@@ -48,6 +57,16 @@ export function TrackItem({ track, index, isActive, isPlaying, onPlay }: Props) 
           {track.title}
         </p>
         <p className="text-xs text-muted-foreground truncate">{track.artist}</p>
+      </div>
+      {/* Favourite button */}
+      <div
+        onClick={handleFavourite}
+        className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${
+          fav ? "text-red-500" : "text-muted-foreground hover:text-red-400"
+        }`}
+        title={fav ? "Remove from favourites" : "Add to favourites"}
+      >
+        <Heart size={14} fill={fav ? "currentColor" : "none"} />
       </div>
       {/* Download button */}
       <div
