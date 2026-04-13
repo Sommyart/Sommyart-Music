@@ -28,7 +28,8 @@ export function AdBanner() {
     return () => clearInterval(timer);
   }, [next]);
 
-  const ad = ads[current];
+  const safeIndex = current % ads.length;
+  const ad = ads[safeIndex];
 
   return (
     <div className="px-4 pt-2 pb-1">
