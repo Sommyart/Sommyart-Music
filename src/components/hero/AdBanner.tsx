@@ -3,33 +3,17 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface Ad {
   id: string;
-  title: string;
-  subtitle: string;
-  gradient: string;
-  accent: string;
+  image: string;
 }
 
 const ads: Ad[] = [
   {
     id: "1",
-    title: "New Drops Every Week",
-    subtitle: "Stay tuned for fresh beats & exclusive releases",
-    gradient: "from-primary/20 via-primary/5 to-transparent",
-    accent: "primary",
+    image: "/images/ad-banner-1.png",
   },
   {
     id: "2",
-    title: "Download & Play Offline",
-    subtitle: "Take your music anywhere — no internet needed",
-    gradient: "from-accent/20 via-accent/5 to-transparent",
-    accent: "accent",
-  },
-  {
-    id: "3",
-    title: "Kosher Music Collection",
-    subtitle: "Sacred sounds for your spiritual journey",
-    gradient: "from-neon-cyan/20 via-neon-cyan/5 to-transparent",
-    accent: "primary",
+    image: "/images/ad-banner-2.png",
   },
 ];
 
@@ -48,39 +32,33 @@ export function AdBanner() {
 
   return (
     <div className="px-4 pt-2 pb-1">
-      <div className={`relative overflow-hidden rounded-2xl border border-border/30 bg-gradient-to-r ${ad.gradient} backdrop-blur-sm`}>
-        {/* Content */}
-        <div className="relative flex items-center justify-between px-5 py-4">
-          <div className="flex-1 min-w-0">
-            <p className="text-[10px] font-display tracking-[0.3em] text-muted-foreground uppercase mb-1">
-              ✦ Featured
-            </p>
-            <h3 className="text-sm font-display font-bold tracking-wide text-foreground truncate">
-              {ad.title}
-            </h3>
-            <p className="text-xs text-muted-foreground mt-0.5 truncate">
-              {ad.subtitle}
-            </p>
-          </div>
+      <div className="relative overflow-hidden rounded-2xl border border-border/30">
+        {/* Image */}
+        <img
+          src={ad.image}
+          alt="Sommyart Academy"
+          className="w-full h-auto object-cover"
+        />
 
-          {/* Nav arrows */}
-          <div className="flex items-center gap-1 ml-3 shrink-0">
-            <button onClick={prev} className="p-1 rounded-full hover:bg-secondary/50 text-muted-foreground hover:text-foreground transition-colors">
-              <ChevronLeft size={14} />
-            </button>
-            <button onClick={next} className="p-1 rounded-full hover:bg-secondary/50 text-muted-foreground hover:text-foreground transition-colors">
-              <ChevronRight size={14} />
-            </button>
-          </div>
+        {/* Nav arrows overlay */}
+        <div className="absolute inset-y-0 left-0 flex items-center pl-1">
+          <button onClick={prev} className="p-1 rounded-full bg-background/40 backdrop-blur-sm text-foreground hover:bg-background/60 transition-colors">
+            <ChevronLeft size={16} />
+          </button>
+        </div>
+        <div className="absolute inset-y-0 right-0 flex items-center pr-1">
+          <button onClick={next} className="p-1 rounded-full bg-background/40 backdrop-blur-sm text-foreground hover:bg-background/60 transition-colors">
+            <ChevronRight size={16} />
+          </button>
         </div>
 
         {/* Dots */}
-        <div className="flex justify-center gap-1.5 pb-2.5">
+        <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1.5">
           {ads.map((_, i) => (
             <button
               key={i}
               onClick={() => setCurrent(i)}
-              className={`h-1 rounded-full transition-all duration-300 ${i === current ? "w-4 bg-primary" : "w-1.5 bg-muted-foreground/30"}`}
+              className={`h-1.5 rounded-full transition-all duration-300 ${i === current ? "w-5 bg-primary" : "w-1.5 bg-foreground/40"}`}
             />
           ))}
         </div>
