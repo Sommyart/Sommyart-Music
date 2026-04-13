@@ -56,7 +56,14 @@ export function TrackItem({ track, index, isActive, isPlaying, onPlay }: Props) 
         <p className={`text-sm font-medium truncate ${isActive ? "text-primary neon-text" : "text-foreground"}`}>
           {track.title}
         </p>
-        <p className="text-xs text-muted-foreground truncate">{track.artist}</p>
+        <div className="flex items-center gap-2">
+          <p className="text-xs text-muted-foreground truncate">{track.artist}</p>
+          {track.genre && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary shrink-0">
+              {track.genre}
+            </span>
+          )}
+        </div>
       </div>
       {/* Favourite button */}
       <div
