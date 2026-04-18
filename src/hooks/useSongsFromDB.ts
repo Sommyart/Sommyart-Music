@@ -23,15 +23,16 @@ export function useSongsFromDB() {
         setSongs(staticTracks);
         setNewestTrack(staticTracks[0] || null);
       } else {
-        const mapped: Track[] = data.map((s) => ({
+        const mapped: Track[] = data.map((s: any) => ({
           id: s.id,
           title: s.title,
           artist: s.artist,
           audioUrl: s.audio_url,
           coverUrl: s.cover_art_url || "/images/logo.png",
           uploadedAt: s.uploaded_at,
+          genre: s.genre || undefined,
         }));
-        mapped.sort((a, b) => a.title.localeCompare(b.title));
+        mapped.sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: "base" }));
         setSongs(mapped);
         setNewestTrack(mapped[0] || null);
       }
