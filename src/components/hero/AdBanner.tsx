@@ -60,11 +60,35 @@ export function AdBanner({ tracks, onPlay }: Props) {
     Autoplay({ delay: 3500, stopOnInteraction: false, stopOnMouseEnter: true })
   );
 
-  // Pick 3 random tracks; reshuffle when the list changes
+  // Pick 3 tracks, deterministically rotated once per day so every user
+  // sees the same fresh suggestions each calendar day.
   const picks = useMemo(() => {
     if (!tracks || tracks.length === 0) return [];
-    const shuffled = [...tracks].sort(() => Math.random() - 0.5);
-    return shuffled.slice(0, 3);
+
+    // Daily seed: YYYYMMDD as integer
+    const now = new Date();
+    const seed =
+      now.getFullYear() * 10000 +
+      (now.getMonth() + 1) * 100 +
+      now.getDate();
+
+    // Mulberry32 — small, fast, deterministic PRNG
+    let s = seed >>> 0;
+    const rand = () => {
+      s = (s + 0x6d2b79f5) >>> 0;
+      let t = s;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+
+    // Seeded Fisher–Yates shuffle
+    const arr = [...tracks];
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr.slice(0, 3);
   }, [tracks]);
 
   if (picks.length === 0) return null;
