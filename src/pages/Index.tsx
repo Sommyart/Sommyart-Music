@@ -1,10 +1,12 @@
-import { useState } from "react";
-import { Search, X, Star, ChevronDown } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Search, X, Star, ChevronDown, Music2 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { TrackItem } from "@/components/playlist/TrackItem";
 import { HeroSection } from "@/components/hero/HeroSection";
+import { AdBanner } from "@/components/hero/AdBanner";
 
 import { useMusicPlayerContext } from "@/contexts/MusicPlayerContext";
+import { Track } from "@/lib/tracks";
 
 const Index = () => {
   const { playlist, currentTrackIndex, isPlaying, playTrack, newestTrack, songsLoading, kosherTracks, mainTracks } = useMusicPlayerContext();
@@ -16,6 +18,11 @@ const Index = () => {
     }
   };
 
+  const handlePlayTrack = (track: Track) => {
+    const idx = playlist.findIndex((t) => t.id === track.id);
+    if (idx >= 0) playTrack(idx);
+  };
+
   const q = searchQuery.toLowerCase();
 
   const filteredMainTracks = mainTracks.filter((track) =>
@@ -25,6 +32,22 @@ const Index = () => {
   const filteredKosherTracks = kosherTracks.filter((track) =>
     track.title.toLowerCase().includes(q) || track.artist.toLowerCase().includes(q)
   );
+
+  // Group main tracks by genre, alphabetized within each group, genres sorted alphabetically
+  const tracksByGenre = useMemo(() => {
+    const groups = new Map<string, Track[]>();
+    for (const t of filteredMainTracks) {
+      const g = t.genre || "Other";
+      if (!groups.has(g)) groups.set(g, []);
+      groups.get(g)!.push(t);
+    }
+    return Array.from(groups.entries())
+      .map(([genre, list]) => ({
+        genre,
+        tracks: [...list].sort((a, b) => a.title.localeCompare(b.title)),
+      }))
+      .sort((a, b) => a.genre.localeCompare(b.genre));
+  }, [filteredMainTracks]);
 
   return (
     <div className="min-h-screen pb-36">
