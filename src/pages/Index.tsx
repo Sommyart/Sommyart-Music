@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
-import { Search, X, Star, ChevronDown, Music2 } from "lucide-react";
+import { useState } from "react";
+import { Search, X, Star } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ChevronDown } from "lucide-react";
 import { TrackItem } from "@/components/playlist/TrackItem";
 import { HeroSection } from "@/components/hero/HeroSection";
 import { AdBanner } from "@/components/hero/AdBanner";
