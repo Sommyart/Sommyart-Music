@@ -34,21 +34,10 @@ const Index = () => {
     track.title.toLowerCase().includes(q) || track.artist.toLowerCase().includes(q)
   );
 
-  // Group main tracks by genre, alphabetized within each group, genres sorted alphabetically
-  const tracksByGenre = useMemo(() => {
-    const groups = new Map<string, Track[]>();
-    for (const t of filteredMainTracks) {
-      const g = t.genre || "Other";
-      if (!groups.has(g)) groups.set(g, []);
-      groups.get(g)!.push(t);
-    }
-    return Array.from(groups.entries())
-      .map(([genre, list]) => ({
-        genre,
-        tracks: [...list].sort((a, b) => a.title.localeCompare(b.title)),
-      }))
-      .sort((a, b) => a.genre.localeCompare(b.genre));
-  }, [filteredMainTracks]);
+  // Flat alphabetical list of main tracks for the home view
+  const sortedMainTracks = [...filteredMainTracks].sort((a, b) =>
+    a.title.localeCompare(b.title)
+  );
 
   return (
     <div className="min-h-screen pb-36">
