@@ -9,6 +9,7 @@ import { FavouritesProvider } from "@/contexts/FavouritesContext";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { MiniPlayer } from "@/components/layout/MiniPlayer";
 import { useMusicPlayerContext } from "@/contexts/MusicPlayerContext";
+import { useDailyNotification } from "@/hooks/useDailyNotification";
 import Index from "./pages/Index";
 import PlayerScreen from "./pages/PlayerScreen";
 import PlaylistScreen from "./pages/PlaylistScreen";
@@ -20,6 +21,7 @@ const queryClient = new QueryClient();
 
 function AppShell() {
   const { currentTrack, isPlaying, togglePlay, handleNext, handlePrev } = useMusicPlayerContext();
+  useDailyNotification();
   return (
     <>
       <Routes>
