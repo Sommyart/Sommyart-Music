@@ -98,6 +98,7 @@ export type Database = {
           artist: string
           audio_url: string
           cover_art_url: string | null
+          genre: string | null
           id: string
           title: string
           uploaded_at: string
@@ -106,6 +107,7 @@ export type Database = {
           artist: string
           audio_url: string
           cover_art_url?: string | null
+          genre?: string | null
           id?: string
           title: string
           uploaded_at?: string
@@ -114,6 +116,7 @@ export type Database = {
           artist?: string
           audio_url?: string
           cover_art_url?: string | null
+          genre?: string | null
           id?: string
           title?: string
           uploaded_at?: string
