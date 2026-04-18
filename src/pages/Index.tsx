@@ -58,6 +58,9 @@ const Index = () => {
       </div>
 
 
+      {/* Featured Picks Ad Banner — auto-sliding carousel of 3 random tracks */}
+      <AdBanner tracks={mainTracks} onPlay={handlePlayTrack} />
+
       {/* Hero — Newest Track */}
       {newestTrack && (
         <HeroSection
@@ -66,9 +69,6 @@ const Index = () => {
           onPlay={handlePlayNewest}
         />
       )}
-
-      {/* Featured Picks Ad Banner — 3 random tracks */}
-      <AdBanner tracks={mainTracks} onPlay={handlePlayTrack} />
 
       {/* Divider */}
       <div className="px-6 py-2">
