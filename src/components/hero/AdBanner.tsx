@@ -1,14 +1,20 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import Autoplay from "embla-carousel-autoplay";
 import { Play, Sparkles } from "lucide-react";
 import { Track } from "@/lib/tracks";
 import { extractCoverArt } from "@/lib/extractCoverArt";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+} from "@/components/ui/carousel";
 
 interface Props {
   tracks: Track[];
   onPlay: (track: Track) => void;
 }
 
-function PromoCard({ track, onPlay }: { track: Track; onPlay: () => void }) {
+function PromoSlide({ track, onPlay }: { track: Track; onPlay: () => void }) {
   const [cover, setCover] = useState<string | null>(null);
 
   useEffect(() => {
@@ -18,32 +24,42 @@ function PromoCard({ track, onPlay }: { track: Track; onPlay: () => void }) {
   return (
     <button
       onClick={onPlay}
-      className="group relative flex-shrink-0 w-32 snap-start text-left focus:outline-none"
+      className="group relative w-full text-left focus:outline-none"
     >
-      <div className="relative w-32 h-32 rounded-xl overflow-hidden neon-border bg-secondary/40">
+      <div className="relative w-full h-40 rounded-xl overflow-hidden neon-border bg-secondary/40">
         <img
           src={cover || track.coverUrl}
           alt={track.title}
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
           loading="lazy"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent" />
-        <div className="absolute inset-0 holographic-shimmer opacity-40" />
-        <div className="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-primary/90 flex items-center justify-center neon-glow opacity-90 group-hover:scale-110 transition-transform">
-          <Play size={14} className="text-primary-foreground ml-0.5" fill="currentColor" />
+        <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/30 to-transparent" />
+        <div className="absolute inset-0 holographic-shimmer opacity-30" />
+
+        <div className="absolute bottom-3 left-3 right-14">
+          <p className="text-sm font-display tracking-wide text-foreground line-clamp-1">
+            {track.title}
+          </p>
+          {track.genre && (
+            <p className="text-[10px] text-primary/90 mt-0.5 uppercase tracking-widest">
+              {track.genre}
+            </p>
+          )}
+        </div>
+
+        <div className="absolute bottom-3 right-3 w-10 h-10 rounded-full bg-primary/90 flex items-center justify-center neon-glow group-hover:scale-110 transition-transform">
+          <Play size={16} className="text-primary-foreground ml-0.5" fill="currentColor" />
         </div>
       </div>
-      <p className="mt-2 text-xs font-display tracking-wide text-foreground line-clamp-2">
-        {track.title}
-      </p>
-      {track.genre && (
-        <p className="text-[10px] text-primary/80 mt-0.5">{track.genre}</p>
-      )}
     </button>
   );
 }
 
 export function AdBanner({ tracks, onPlay }: Props) {
+  const autoplay = useRef(
+    Autoplay({ delay: 3500, stopOnInteraction: false, stopOnMouseEnter: true })
+  );
+
   // Pick 3 random tracks; reshuffle when the list changes
   const picks = useMemo(() => {
     if (!tracks || tracks.length === 0) return [];
@@ -67,11 +83,19 @@ export function AdBanner({ tracks, onPlay }: Props) {
           </h2>
         </div>
 
-        <div className="relative flex gap-3 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-1">
-          {picks.map((t) => (
-            <PromoCard key={t.id} track={t} onPlay={() => onPlay(t)} />
-          ))}
-        </div>
+        <Carousel
+          opts={{ loop: true, align: "start" }}
+          plugins={[autoplay.current]}
+          className="relative"
+        >
+          <CarouselContent className="-ml-2">
+            {picks.map((t) => (
+              <CarouselItem key={t.id} className="pl-2 basis-full">
+                <PromoSlide track={t} onPlay={() => onPlay(t)} />
+              </CarouselItem>
+            ))}
+          </CarouselContent>
+        </Carousel>
       </div>
     </section>
   );

@@ -1,6 +1,5 @@
-import { useMemo, useState } from "react";
-import { Search, X, Star, ChevronDown, Music2 } from "lucide-react";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { useState } from "react";
+import { Search, X, Star } from "lucide-react";
 import { TrackItem } from "@/components/playlist/TrackItem";
 import { HeroSection } from "@/components/hero/HeroSection";
 import { AdBanner } from "@/components/hero/AdBanner";
@@ -33,21 +32,10 @@ const Index = () => {
     track.title.toLowerCase().includes(q) || track.artist.toLowerCase().includes(q)
   );
 
-  // Group main tracks by genre, alphabetized within each group, genres sorted alphabetically
-  const tracksByGenre = useMemo(() => {
-    const groups = new Map<string, Track[]>();
-    for (const t of filteredMainTracks) {
-      const g = t.genre || "Other";
-      if (!groups.has(g)) groups.set(g, []);
-      groups.get(g)!.push(t);
-    }
-    return Array.from(groups.entries())
-      .map(([genre, list]) => ({
-        genre,
-        tracks: [...list].sort((a, b) => a.title.localeCompare(b.title)),
-      }))
-      .sort((a, b) => a.genre.localeCompare(b.genre));
-  }, [filteredMainTracks]);
+  // Flat alphabetical list of main tracks for the home view
+  const sortedMainTracks = [...filteredMainTracks].sort((a, b) =>
+    a.title.localeCompare(b.title)
+  );
 
   return (
     <div className="min-h-screen pb-36">
@@ -68,6 +56,9 @@ const Index = () => {
       </div>
 
 
+      {/* Featured Picks Ad Banner — auto-sliding carousel of 3 random tracks */}
+      <AdBanner tracks={mainTracks} onPlay={handlePlayTrack} />
+
       {/* Hero — Newest Track */}
       {newestTrack && (
         <HeroSection
@@ -76,9 +67,6 @@ const Index = () => {
           onPlay={handlePlayNewest}
         />
       )}
-
-      {/* Featured Picks Ad Banner — 3 random tracks */}
-      <AdBanner tracks={mainTracks} onPlay={handlePlayTrack} />
 
       {/* Divider */}
       <div className="px-6 py-2">
@@ -107,84 +95,63 @@ const Index = () => {
         </div>
       </div>
 
-      {/* Kosher Music Section */}
+      {/* Kosher Music Section — flat */}
       {filteredKosherTracks.length > 0 && (
         <section className="px-4 mb-6">
-          <Collapsible defaultOpen={false}>
-            <CollapsibleTrigger className="flex items-center gap-2 mb-4 px-2 w-full group">
-              <Star className="w-4 h-4 text-primary" />
-              <h2 className="text-sm font-display tracking-widest text-primary">
-                KOSHER MUSIC
-              </h2>
-              <span className="text-xs text-muted-foreground">({filteredKosherTracks.length})</span>
-              <ChevronDown className="w-4 h-4 text-primary ml-auto transition-transform group-data-[state=open]:rotate-180" />
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <div className="space-y-1">
-                {filteredKosherTracks.map((track) => {
-                  const originalIndex = playlist.findIndex((t) => t.id === track.id);
-                  return (
-                    <TrackItem
-                      key={track.id}
-                      track={track}
-                      index={originalIndex}
-                      isActive={currentTrackIndex === originalIndex}
-                      isPlaying={currentTrackIndex === originalIndex && isPlaying}
-                      onPlay={() => playTrack(originalIndex)}
-                    />
-                  );
-                })}
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
+          <div className="flex items-center gap-2 mb-3 px-2">
+            <Star className="w-4 h-4 text-primary" />
+            <h2 className="text-sm font-display tracking-widest text-primary">
+              KOSHER MUSIC
+            </h2>
+            <span className="text-xs text-muted-foreground">({filteredKosherTracks.length})</span>
+          </div>
+          <div className="space-y-1">
+            {filteredKosherTracks.map((track) => {
+              const originalIndex = playlist.findIndex((t) => t.id === track.id);
+              return (
+                <TrackItem
+                  key={track.id}
+                  track={track}
+                  index={originalIndex}
+                  isActive={currentTrackIndex === originalIndex}
+                  isPlaying={currentTrackIndex === originalIndex && isPlaying}
+                  onPlay={() => playTrack(originalIndex)}
+                />
+              );
+            })}
+          </div>
           <div className="mt-4">
             <div className="h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
           </div>
         </section>
       )}
 
-      {/* Tracks grouped by genre */}
+      {/* All tracks — flat alphabetical list */}
       <section className="px-4">
         <h2 className="text-sm font-display tracking-widest text-primary mb-4 px-2">
-          BROWSE BY GENRE {searchQuery && `(${filteredMainTracks.length})`}
+          ALL TRACKS {searchQuery && `(${sortedMainTracks.length})`}
         </h2>
         {songsLoading ? (
           <div className="flex justify-center py-8">
             <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
           </div>
-        ) : tracksByGenre.length === 0 ? (
+        ) : sortedMainTracks.length === 0 ? (
           <p className="text-center text-sm text-muted-foreground py-8">No tracks found</p>
         ) : (
-          <div className="space-y-3">
-            {tracksByGenre.map(({ genre, tracks: genreTracks }) => (
-              <Collapsible key={genre} defaultOpen={!!searchQuery}>
-                <CollapsibleTrigger className="flex items-center gap-2 px-2 py-2 w-full group rounded-lg hover:bg-secondary/30 transition-colors">
-                  <Music2 className="w-4 h-4 text-primary" />
-                  <h3 className="text-xs font-display tracking-widest text-foreground uppercase">
-                    {genre}
-                  </h3>
-                  <span className="text-xs text-muted-foreground">({genreTracks.length})</span>
-                  <ChevronDown className="w-4 h-4 text-primary ml-auto transition-transform group-data-[state=open]:rotate-180" />
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <div className="space-y-1 pt-2">
-                    {genreTracks.map((track) => {
-                      const originalIndex = playlist.findIndex((t) => t.id === track.id);
-                      return (
-                        <TrackItem
-                          key={track.id}
-                          track={track}
-                          index={originalIndex}
-                          isActive={currentTrackIndex === originalIndex}
-                          isPlaying={currentTrackIndex === originalIndex && isPlaying}
-                          onPlay={() => playTrack(originalIndex)}
-                        />
-                      );
-                    })}
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-            ))}
+          <div className="space-y-1">
+            {sortedMainTracks.map((track) => {
+              const originalIndex = playlist.findIndex((t) => t.id === track.id);
+              return (
+                <TrackItem
+                  key={track.id}
+                  track={track}
+                  index={originalIndex}
+                  isActive={currentTrackIndex === originalIndex}
+                  isPlaying={currentTrackIndex === originalIndex && isPlaying}
+                  onPlay={() => playTrack(originalIndex)}
+                />
+              );
+            })}
           </div>
         )}
       </section>

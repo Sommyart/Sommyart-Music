@@ -1,16 +1,39 @@
-import { useState } from "react";
-import { Search, X } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Search, X, Star, Music2, ChevronDown } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { TrackItem } from "@/components/playlist/TrackItem";
 import { useMusicPlayerContext } from "@/contexts/MusicPlayerContext";
+import { Track } from "@/lib/tracks";
 
 const PlaylistScreen = () => {
-  const { playlist, currentTrackIndex, isPlaying, playTrack } = useMusicPlayerContext();
+  const { playlist, currentTrackIndex, isPlaying, playTrack, kosherTracks, mainTracks } = useMusicPlayerContext();
   const [searchQuery, setSearchQuery] = useState("");
 
-  const filteredTracks = playlist.filter((track) => {
-    const q = searchQuery.toLowerCase();
-    return track.title.toLowerCase().includes(q) || track.artist.toLowerCase().includes(q);
-  });
+  const q = searchQuery.toLowerCase();
+
+  const filteredKosher = kosherTracks.filter(
+    (t) => t.title.toLowerCase().includes(q) || t.artist.toLowerCase().includes(q)
+  );
+
+  const filteredMain = mainTracks.filter(
+    (t) => t.title.toLowerCase().includes(q) || t.artist.toLowerCase().includes(q)
+  );
+
+  // Group main tracks by genre, alphabetized within each group, genres sorted alphabetically
+  const tracksByGenre = useMemo(() => {
+    const groups = new Map<string, Track[]>();
+    for (const t of filteredMain) {
+      const g = t.genre || "Other";
+      if (!groups.has(g)) groups.set(g, []);
+      groups.get(g)!.push(t);
+    }
+    return Array.from(groups.entries())
+      .map(([genre, list]) => ({
+        genre,
+        tracks: [...list].sort((a, b) => a.title.localeCompare(b.title)),
+      }))
+      .sort((a, b) => a.genre.localeCompare(b.genre));
+  }, [filteredMain]);
 
   return (
     <div className="min-h-screen pb-36">
@@ -41,25 +64,77 @@ const PlaylistScreen = () => {
         </div>
       </div>
 
-      <div className="px-4 space-y-1">
-        {filteredTracks.length === 0 ? (
+      {/* Kosher Music Section */}
+      {filteredKosher.length > 0 && (
+        <section className="px-4 mb-4">
+          <Collapsible defaultOpen={!!searchQuery}>
+            <CollapsibleTrigger className="flex items-center gap-2 px-2 py-2 w-full group rounded-lg hover:bg-secondary/30 transition-colors">
+              <Star className="w-4 h-4 text-primary" />
+              <h2 className="text-xs font-display tracking-widest text-primary uppercase">
+                Kosher Music
+              </h2>
+              <span className="text-xs text-muted-foreground">({filteredKosher.length})</span>
+              <ChevronDown className="w-4 h-4 text-primary ml-auto transition-transform group-data-[state=open]:rotate-180" />
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="space-y-1 pt-2">
+                {filteredKosher.map((track) => {
+                  const originalIndex = playlist.findIndex((t) => t.id === track.id);
+                  return (
+                    <TrackItem
+                      key={track.id}
+                      track={track}
+                      index={originalIndex}
+                      isActive={currentTrackIndex === originalIndex}
+                      isPlaying={currentTrackIndex === originalIndex && isPlaying}
+                      onPlay={() => playTrack(originalIndex)}
+                    />
+                  );
+                })}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        </section>
+      )}
+
+      {/* Genre groups */}
+      <section className="px-4">
+        {tracksByGenre.length === 0 && filteredKosher.length === 0 ? (
           <p className="text-center text-sm text-muted-foreground py-8">No tracks found</p>
         ) : (
-          filteredTracks.map((track) => {
-            const originalIndex = playlist.findIndex((t) => t.id === track.id);
-            return (
-              <TrackItem
-                key={track.id}
-                track={track}
-                index={originalIndex}
-                isActive={currentTrackIndex === originalIndex}
-                isPlaying={currentTrackIndex === originalIndex && isPlaying}
-                onPlay={() => playTrack(originalIndex)}
-              />
-            );
-          })
+          <div className="space-y-2">
+            {tracksByGenre.map(({ genre, tracks: genreTracks }) => (
+              <Collapsible key={genre} defaultOpen={!!searchQuery}>
+                <CollapsibleTrigger className="flex items-center gap-2 px-2 py-2 w-full group rounded-lg hover:bg-secondary/30 transition-colors">
+                  <Music2 className="w-4 h-4 text-primary" />
+                  <h3 className="text-xs font-display tracking-widest text-foreground uppercase">
+                    {genre}
+                  </h3>
+                  <span className="text-xs text-muted-foreground">({genreTracks.length})</span>
+                  <ChevronDown className="w-4 h-4 text-primary ml-auto transition-transform group-data-[state=open]:rotate-180" />
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="space-y-1 pt-2">
+                    {genreTracks.map((track) => {
+                      const originalIndex = playlist.findIndex((t) => t.id === track.id);
+                      return (
+                        <TrackItem
+                          key={track.id}
+                          track={track}
+                          index={originalIndex}
+                          isActive={currentTrackIndex === originalIndex}
+                          isPlaying={currentTrackIndex === originalIndex && isPlaying}
+                          onPlay={() => playTrack(originalIndex)}
+                        />
+                      );
+                    })}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            ))}
+          </div>
         )}
-      </div>
+      </section>
     </div>
   );
 };
