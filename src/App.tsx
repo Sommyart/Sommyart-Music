@@ -21,6 +21,7 @@ const queryClient = new QueryClient();
 
 function AppShell() {
   const { currentTrack, isPlaying, togglePlay, handleNext, handlePrev } = useMusicPlayerContext();
+  useDailyNotification();
   return (
     <>
       <Routes>
