@@ -32,9 +32,23 @@ export function useSongsFromDB() {
           uploadedAt: s.uploaded_at,
           genre: s.genre || undefined,
         }));
-        mapped.sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: "base" }));
-        setSongs(mapped);
-        setNewestTrack(mapped[0] || null);
+        // Merge DB tracks with static fallback tracks (old catalog), de-duped by id and by title+artist
+        const seen = new Set<string>();
+        const keyOf = (t: Track) =>
+          `${t.title.trim().toLowerCase()}__${t.artist.trim().toLowerCase()}`;
+        const merged: Track[] = [];
+        for (const t of [...mapped, ...staticTracks]) {
+          const k = keyOf(t);
+          if (seen.has(t.id) || seen.has(k)) continue;
+          seen.add(t.id);
+          seen.add(k);
+          merged.push(t);
+        }
+        // Newest = most recent DB upload (already sorted DESC by uploaded_at)
+        const newest = mapped[0] || merged[0] || null;
+        merged.sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: "base" }));
+        setSongs(merged);
+        setNewestTrack(newest);
       }
     } catch {
       setSongs(staticTracks);
