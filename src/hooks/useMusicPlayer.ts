@@ -33,6 +33,14 @@ export function useMusicPlayer(playlist: Track[]) {
     audio.addEventListener("timeupdate", () => setCurrentTime(audio.currentTime));
     audio.addEventListener("loadedmetadata", () => setDuration(audio.duration));
     audio.addEventListener("ended", () => handleNext());
+    audio.addEventListener("error", () => {
+      const err = audio.error;
+      console.error("Audio element error:", {
+        code: err?.code,
+        message: err?.message,
+        src: audio.src,
+      });
+    });
     return () => { audio.pause(); audio.src = ""; };
   }, []);
 
