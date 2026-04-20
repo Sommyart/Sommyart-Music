@@ -39,9 +39,16 @@ export function useMusicPlayer(playlist: Track[]) {
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio || !currentTrack) return;
-    audio.src = currentTrack.audioUrl;
-    if (isPlaying) audio.play().catch(() => {});
-  }, [currentTrackIndex, currentTrack?.id]);
+    if (audio.src !== currentTrack.audioUrl) {
+      audio.src = currentTrack.audioUrl;
+      audio.load();
+    }
+    if (isPlaying) {
+      audio.play().catch((err) => {
+        console.error("Playback failed:", err, currentTrack.audioUrl);
+      });
+    }
+  }, [currentTrack?.id, isPlaying]);
 
   const togglePlay = useCallback(() => {
     const audio = audioRef.current;
