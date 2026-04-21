@@ -6,22 +6,46 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const RECOVERY_CODE_COUNT = 6;
+
+// Generate a single user-friendly recovery code: 4 groups of 4 chars (no ambiguous chars)
+function generateRecoveryCode(): string {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const buf = new Uint8Array(16);
+  crypto.getRandomValues(buf);
+  const chars = Array.from(buf, (b) => alphabet[b % alphabet.length]);
+  return `${chars.slice(0, 4).join("")}-${chars.slice(4, 8).join("")}-${chars.slice(8, 12).join("")}-${chars.slice(12, 16).join("")}`;
+}
+
+function normalizeCode(code: string): string {
+  return code.toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+async function hashCode(normalized: string): Promise<string> {
+  const data = new TextEncoder().encode(normalized);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { action, username, pin, newPin } = await req.json();
+    const { action, username, pin, newPin, recoveryCode } = await req.json();
 
-    if (!username || !pin) {
-      return new Response(JSON.stringify({ error: "Username and PIN are required" }), {
+    if (!username) {
+      return new Response(JSON.stringify({ error: "Username is required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    if (!/^\d{4}$/.test(pin)) {
+    // For signup/login, PIN required. For reset_pin, recoveryCode + newPin required.
+    if ((action === "signup" || action === "login") && !/^\d{4}$/.test(pin ?? "")) {
       return new Response(JSON.stringify({ error: "PIN must be exactly 4 digits" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -34,17 +58,15 @@ serve(async (req) => {
 
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Use a fake email derived from username
-    const email = `${username.toLowerCase().trim()}@sommyart.app`;
-    // Pad PIN to meet Supabase min password length (6 chars)
+    const normalizedUsername = username.toLowerCase().trim();
+    const email = `${normalizedUsername}@sommyart.app`;
     const password = `pin_${pin}_sa`;
 
     if (action === "signup") {
-      // Check if username already exists in profiles
       const { data: existing } = await adminClient
         .from("profiles")
         .select("id")
-        .eq("username", username.toLowerCase().trim())
+        .eq("username", normalizedUsername)
         .maybeSingle();
 
       if (existing) {
@@ -54,7 +76,6 @@ serve(async (req) => {
         });
       }
 
-      // Create user in auth
       const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
         email,
         password,
@@ -68,19 +89,27 @@ serve(async (req) => {
         });
       }
 
-      // Create profile
       await adminClient.from("profiles").insert({
         user_id: authData.user.id,
-        username: username.toLowerCase().trim(),
+        username: normalizedUsername,
       });
 
-      // Assign default role
       await adminClient.from("user_roles").insert({
         user_id: authData.user.id,
         role: "user",
       });
 
-      // Sign in to get session
+      // Generate recovery codes
+      const codes: string[] = [];
+      const rows: { user_id: string; code_hash: string }[] = [];
+      for (let i = 0; i < RECOVERY_CODE_COUNT; i++) {
+        const code = generateRecoveryCode();
+        codes.push(code);
+        const hash = await hashCode(normalizeCode(code));
+        rows.push({ user_id: authData.user.id, code_hash: hash });
+      }
+      await adminClient.from("recovery_codes").insert(rows);
+
       const anonClient = createClient(supabaseUrl, supabaseAnonKey);
       const { data: session, error: signInError } = await anonClient.auth.signInWithPassword({
         email,
@@ -94,9 +123,10 @@ serve(async (req) => {
         });
       }
 
-      return new Response(JSON.stringify({ session: session.session, user: authData.user }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ session: session.session, user: authData.user, recoveryCodes: codes }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     if (action === "login") {
@@ -125,17 +155,39 @@ serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+      if (!recoveryCode || typeof recoveryCode !== "string") {
+        return new Response(JSON.stringify({ error: "Recovery code is required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
-      // Find user by username
       const { data: profile } = await adminClient
         .from("profiles")
         .select("user_id")
-        .eq("username", username.toLowerCase().trim())
+        .eq("username", normalizedUsername)
         .maybeSingle();
 
+      // Always do hash check to avoid timing/enumeration leaks
+      const hash = await hashCode(normalizeCode(recoveryCode));
+
       if (!profile) {
-        return new Response(JSON.stringify({ error: "Username not found" }), {
-          status: 404,
+        return new Response(JSON.stringify({ error: "Invalid username or recovery code" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data: codeRow } = await adminClient
+        .from("recovery_codes")
+        .select("id, used_at")
+        .eq("user_id", profile.user_id)
+        .eq("code_hash", hash)
+        .maybeSingle();
+
+      if (!codeRow || codeRow.used_at) {
+        return new Response(JSON.stringify({ error: "Invalid username or recovery code" }), {
+          status: 401,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -152,7 +204,53 @@ serve(async (req) => {
         });
       }
 
+      // Burn the used code
+      await adminClient
+        .from("recovery_codes")
+        .update({ used_at: new Date().toISOString() })
+        .eq("id", codeRow.id);
+
       return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "regenerate_codes") {
+      // Requires user to be authenticated AND prove current PIN
+      if (!/^\d{4}$/.test(pin ?? "")) {
+        return new Response(JSON.stringify({ error: "Current PIN required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const anonClient = createClient(supabaseUrl, supabaseAnonKey);
+      const { data: session, error: signInError } = await anonClient.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (signInError || !session.user) {
+        return new Response(JSON.stringify({ error: "Invalid username or PIN" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Invalidate old codes
+      await adminClient.from("recovery_codes").delete().eq("user_id", session.user.id);
+
+      const codes: string[] = [];
+      const rows: { user_id: string; code_hash: string }[] = [];
+      for (let i = 0; i < RECOVERY_CODE_COUNT; i++) {
+        const code = generateRecoveryCode();
+        codes.push(code);
+        const hash = await hashCode(normalizeCode(code));
+        rows.push({ user_id: session.user.id, code_hash: hash });
+      }
+      await adminClient.from("recovery_codes").insert(rows);
+
+      return new Response(JSON.stringify({ recoveryCodes: codes }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
