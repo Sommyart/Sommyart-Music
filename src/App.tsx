@@ -18,7 +18,7 @@ import PlaylistScreen from "./pages/PlaylistScreen";
 import DownloadsScreen from "./pages/DownloadsScreen";
 import NotFound from "./pages/NotFound";
 import InstallPrompt from "./components/InstallPrompt";
-import { UsernameGate } from "./components/UsernameGate";
+import { AuthGate } from "./components/AuthGate";
 
 const queryClient = new QueryClient();
 
@@ -65,7 +65,7 @@ const App = () => (
           <DownloadProvider>
             <FavouritesProvider>
               <InstallPrompt />
-              <UsernameGate />
+              <AuthGate />
               <AppShell />
             </FavouritesProvider>
           </DownloadProvider>
