@@ -20,8 +20,39 @@ export function HeroSection({ track, isPlaying, onPlay }: Props) {
 
   const displayCover = coverArt || track.coverUrl;
 
+  // Shabbat Shalom greeting — expires at 7pm WAT (UTC+1) today
+  const [showShabbat, setShowShabbat] = useState(() => {
+    // 7pm WAT = 18:00 UTC
+    const expiry = new Date();
+    expiry.setUTCHours(18, 0, 0, 0);
+    return Date.now() < expiry.getTime();
+  });
+
+  useEffect(() => {
+    if (!showShabbat) return;
+    const expiry = new Date();
+    expiry.setUTCHours(18, 0, 0, 0);
+    const ms = expiry.getTime() - Date.now();
+    if (ms <= 0) {
+      setShowShabbat(false);
+      return;
+    }
+    const t = setTimeout(() => setShowShabbat(false), ms);
+    return () => clearTimeout(t);
+  }, [showShabbat]);
+
   return (
     <section className="relative px-6 pt-6 pb-8 overflow-hidden">
+      {showShabbat && (
+        <div className="relative z-10 flex flex-col items-center gap-2 mb-4">
+          <div className="px-4 py-1.5 rounded-full glass border border-primary/40 text-xs font-display tracking-[0.25em] text-primary uppercase neon-glow animate-pulse-neon">
+            ✡ Shabbat Shalom ✡
+          </div>
+          <div className="px-3 py-1 rounded-full glass border border-accent/30 text-[10px] font-display tracking-[0.3em] text-accent uppercase">
+            ✦ Peace & Blessings ✦
+          </div>
+        </div>
+      )}
       {/* Background ambient glow */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full blur-3xl opacity-20" style={{ background: "hsl(var(--neon-cyan))" }} />
