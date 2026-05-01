@@ -46,7 +46,8 @@ export function useSongsFromDB() {
         }
         // Newest = most recent DB upload (already sorted DESC by uploaded_at)
         const newest = mapped[0] || merged[0] || null;
-        merged.sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: "base" }));
+        // Keep newest-first order: DB tracks (sorted DESC by uploaded_at) come before
+        // static fallback tracks which have no uploaded_at.
         setSongs(merged);
         setNewestTrack(newest);
       }
