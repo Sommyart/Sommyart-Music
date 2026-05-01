@@ -32,10 +32,13 @@ const Index = () => {
     track.title.toLowerCase().includes(q) || track.artist.toLowerCase().includes(q)
   );
 
-  // Flat alphabetical list of main tracks for the home view
-  const sortedMainTracks = [...filteredMainTracks].sort((a, b) =>
-    a.title.localeCompare(b.title)
-  );
+  // Newest releases first; tracks without an upload date fall to the bottom (alpha)
+  const sortedMainTracks = [...filteredMainTracks].sort((a, b) => {
+    const aTime = a.uploadedAt ? new Date(a.uploadedAt).getTime() : 0;
+    const bTime = b.uploadedAt ? new Date(b.uploadedAt).getTime() : 0;
+    if (aTime !== bTime) return bTime - aTime;
+    return a.title.localeCompare(b.title);
+  });
 
   return (
     <div className="min-h-screen pb-36">
@@ -129,7 +132,7 @@ const Index = () => {
       {/* All tracks — flat alphabetical list */}
       <section className="px-4">
         <h2 className="text-sm font-display tracking-widest text-primary mb-4 px-2">
-          ALL TRACKS {searchQuery && `(${sortedMainTracks.length})`}
+          NEWEST RELEASES {searchQuery && `(${sortedMainTracks.length})`}
         </h2>
         {songsLoading ? (
           <div className="flex justify-center py-8">
