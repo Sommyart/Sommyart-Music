@@ -93,6 +93,9 @@ export function AdBanner({ tracks, onPlay }: Props) {
 
   if (picks.length === 0) return null;
 
+  // Show greeting slides only during May (Workers' Day + New Month).
+  const showGreetings = new Date().getMonth() === 4; // 4 = May
+
   return (
     <section className="relative px-4 mb-4">
       <div className="relative rounded-2xl overflow-hidden glass border border-primary/20 p-4">
@@ -113,6 +116,24 @@ export function AdBanner({ tracks, onPlay }: Props) {
           className="relative"
         >
           <CarouselContent className="-ml-2">
+            {showGreetings && (
+              <>
+                <CarouselItem key="greet-new-month" className="pl-2 basis-full">
+                  <GreetingSlide
+                    title="Happy New Month"
+                    subtitle="✦ May your frequency rise ✦"
+                    emoji="🌟"
+                  />
+                </CarouselItem>
+                <CarouselItem key="greet-workers-day" className="pl-2 basis-full">
+                  <GreetingSlide
+                    title="Happy Workers' Day"
+                    subtitle="✦ Honoring every hustle ✦"
+                    emoji="⚡"
+                  />
+                </CarouselItem>
+              </>
+            )}
             {picks.map((t) => (
               <CarouselItem key={t.id} className="pl-2 basis-full">
                 <PromoSlide track={t} onPlay={() => onPlay(t)} />
@@ -124,3 +145,39 @@ export function AdBanner({ tracks, onPlay }: Props) {
     </section>
   );
 }
+
+function GreetingSlide({
+  title,
+  subtitle,
+  emoji,
+}: {
+  title: string;
+  subtitle: string;
+  emoji: string;
+}) {
+  return (
+    <div className="relative w-full h-40 rounded-xl overflow-hidden neon-border flex items-center justify-center">
+      <div
+        className="absolute inset-0"
+        style={{
+          background:
+            "linear-gradient(135deg, hsl(var(--neon-cyan) / 0.25), hsl(var(--accent) / 0.25))",
+        }}
+      />
+      <div className="absolute inset-0 holographic-shimmer opacity-40" />
+      <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full blur-3xl opacity-40" style={{ background: "hsl(var(--neon-cyan))" }} />
+      <div className="absolute -bottom-8 -left-8 w-32 h-32 rounded-full blur-3xl opacity-30" style={{ background: "hsl(var(--accent))" }} />
+
+      <div className="relative z-10 flex flex-col items-center text-center px-4">
+        <div className="text-3xl mb-1 animate-float">{emoji}</div>
+        <h3 className="text-base font-display font-bold tracking-[0.2em] text-foreground neon-text uppercase">
+          {title}
+        </h3>
+        <p className="text-[10px] text-primary/90 mt-1 tracking-[0.25em] uppercase">
+          {subtitle}
+        </p>
+      </div>
+    </div>
+  );
+}
+
