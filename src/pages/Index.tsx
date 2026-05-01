@@ -132,7 +132,7 @@ const Index = () => {
       {/* All tracks — flat alphabetical list */}
       <section className="px-4">
         <h2 className="text-sm font-display tracking-widest text-primary mb-4 px-2">
-          ALL TRACKS {searchQuery && `(${sortedMainTracks.length})`}
+          NEWEST RELEASES {searchQuery && `(${sortedMainTracks.length})`}
         </h2>
         {songsLoading ? (
           <div className="flex justify-center py-8">
