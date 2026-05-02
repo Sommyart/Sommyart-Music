@@ -264,11 +264,11 @@ export default function AdminLyrics() {
           <div className="space-y-1">
             {draftLines.map((text, i) => {
               if (!text) return null;
-              const stamp = stamps.get(i);
+              const stamp = stamps[i];
               const isActive =
                 typeof stamp === "number" &&
                 time >= stamp &&
-                (i + 1 >= draftLines.length || (stamps.get(i + 1) ?? Infinity) > time);
+                (i + 1 >= draftLines.length || (stamps[i + 1] ?? Infinity) > time);
               return (
                 <div
                   key={i}
@@ -287,9 +287,7 @@ export default function AdminLyrics() {
                   <span className="text-sm flex-1 truncate">{text}</span>
                   {typeof stamp === "number" && (
                     <button
-                      onClick={() => {
-                        setLines((prev) => prev.filter((_, idx) => idx !== i));
-                      }}
+                      onClick={() => clearStamp(i)}
                       className="text-muted-foreground hover:text-destructive shrink-0"
                       aria-label="Clear timestamp"
                     >
