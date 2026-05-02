@@ -1,3 +1,8 @@
+export interface LyricLine {
+  t: number; // seconds
+  text: string;
+}
+
 export interface Track {
   id: string;
   title: string;
@@ -7,6 +12,7 @@ export interface Track {
   uploadedAt?: string;
   category?: string;
   genre?: string;
+  lyrics?: LyricLine[] | null;
 }
 
 // Static fallback tracks — sorted alphabetically by title

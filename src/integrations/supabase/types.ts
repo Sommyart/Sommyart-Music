@@ -124,6 +124,7 @@ export type Database = {
           cover_art_url: string | null
           genre: string | null
           id: string
+          lyrics: Json | null
           title: string
           uploaded_at: string
         }
@@ -133,6 +134,7 @@ export type Database = {
           cover_art_url?: string | null
           genre?: string | null
           id?: string
+          lyrics?: Json | null
           title: string
           uploaded_at?: string
         }
@@ -142,6 +144,7 @@ export type Database = {
           cover_art_url?: string | null
           genre?: string | null
           id?: string
+          lyrics?: Json | null
           title?: string
           uploaded_at?: string
         }

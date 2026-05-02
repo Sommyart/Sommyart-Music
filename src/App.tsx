@@ -16,6 +16,7 @@ import Index from "./pages/Index";
 import PlayerScreen from "./pages/PlayerScreen";
 import PlaylistScreen from "./pages/PlaylistScreen";
 import DownloadsScreen from "./pages/DownloadsScreen";
+import AdminLyrics from "./pages/AdminLyrics";
 import NotFound from "./pages/NotFound";
 import InstallPrompt from "./components/InstallPrompt";
 import { AuthGate } from "./components/AuthGate";
@@ -47,6 +48,7 @@ function AppShell() {
         <Route path="/player" element={<PlayerScreen />} />
         <Route path="/playlist" element={<PlaylistScreen />} />
         <Route path="/downloads" element={<DownloadsScreen />} />
+        <Route path="/admin/lyrics" element={<AdminLyrics />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
       <MiniPlayer track={currentTrack} isPlaying={isPlaying} onTogglePlay={togglePlay} onNext={handleNext} onPrev={handlePrev} />
