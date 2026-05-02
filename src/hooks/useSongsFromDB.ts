@@ -31,6 +31,7 @@ export function useSongsFromDB() {
           coverUrl: s.cover_art_url || "/images/logo.png",
           uploadedAt: s.uploaded_at,
           genre: s.genre || undefined,
+          lyrics: Array.isArray(s.lyrics) ? s.lyrics : null,
         }));
         // Merge DB tracks with static fallback tracks (old catalog), de-duped by id and by title+artist
         const seen = new Set<string>();
