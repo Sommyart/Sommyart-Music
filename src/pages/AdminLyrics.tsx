@@ -30,7 +30,8 @@ export default function AdminLyrics() {
   const [songs, setSongs] = useState<DBSong[]>([]);
   const [selected, setSelected] = useState<DBSong | null>(null);
   const [draft, setDraft] = useState("");
-  const [lines, setLines] = useState<LyricLine[]>([]);
+  // stamps[i] = seconds for draft line i. Missing = unstamped.
+  const [stamps, setStamps] = useState<Record<number, number>>({});
   const [time, setTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -81,12 +82,11 @@ export default function AdminLyrics() {
 
   const selectSong = (s: DBSong) => {
     setSelected(s);
-    setLines(Array.isArray(s.lyrics) ? [...s.lyrics] : []);
-    setDraft(
-      Array.isArray(s.lyrics) && s.lyrics.length
-        ? s.lyrics.map((l) => l.text).join("\n")
-        : ""
-    );
+    const existing = Array.isArray(s.lyrics) ? s.lyrics : [];
+    setDraft(existing.map((l) => l.text).join("\n"));
+    const map: Record<number, number> = {};
+    existing.forEach((l, i) => (map[i] = l.t));
+    setStamps(map);
     const a = audioRef.current;
     if (a) {
       a.src = s.audio_url;
@@ -120,49 +120,37 @@ export default function AdminLyrics() {
     [draft]
   );
 
-  const stamps = useMemo(() => {
-    // Build full grid: for each draft line, what timestamp is set (if any)
-    const map = new Map<number, number>();
-    lines.forEach((l, i) => map.set(i, l.t));
-    return map;
-  }, [lines]);
-
   const markCurrent = (i: number) => {
-    setLines((prev) => {
-      const next = [...prev];
-      next[i] = { t: parseFloat(time.toFixed(2)), text: draftLines[i] || "" };
+    setStamps((prev) => ({ ...prev, [i]: parseFloat(time.toFixed(2)) }));
+  };
+
+  const clearStamp = (i: number) => {
+    setStamps((prev) => {
+      const next = { ...prev };
+      delete next[i];
       return next;
     });
   };
 
-  // Keep lines array length in sync with draft lines while preserving stamps
-  useEffect(() => {
-    setLines((prev) => {
-      const next: LyricLine[] = [];
-      for (let i = 0; i < draftLines.length; i++) {
-        if (prev[i]) next[i] = { ...prev[i], text: draftLines[i] };
-      }
-      return next.filter((l) => l !== undefined) as LyricLine[];
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draft]);
-
   const save = async () => {
     if (!selected) return;
     setSaving(true);
-    // Pair draft lines with stamps in order; only keep ones with timestamps
     const final: LyricLine[] = [];
     for (let i = 0; i < draftLines.length; i++) {
-      const stamp = stamps.get(i);
+      const stamp = stamps[i];
       if (typeof stamp === "number" && draftLines[i]) {
         final.push({ t: stamp, text: draftLines[i] });
       }
     }
     final.sort((a, b) => a.t - b.t);
 
+    const payload = final.length
+      ? (final as unknown as any) // jsonb column
+      : null;
+
     const { error } = await supabase
       .from("songs")
-      .update({ lyrics: final.length ? final : null })
+      .update({ lyrics: payload })
       .eq("id", selected.id);
     setSaving(false);
     if (error) {
