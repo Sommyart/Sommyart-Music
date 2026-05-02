@@ -93,8 +93,8 @@ export function AdBanner({ tracks, onPlay }: Props) {
 
   if (picks.length === 0) return null;
 
-  // Show greeting slides only during May (Workers' Day + New Month).
-  const showGreetings = new Date().getMonth() === 4; // 4 = May
+  // Show "Happy New Week" greeting on Mondays (WAT).
+  const showGreetings = new Date().getDay() === 1;
 
   return (
     <section className="relative px-4 mb-4">
@@ -117,22 +117,13 @@ export function AdBanner({ tracks, onPlay }: Props) {
         >
           <CarouselContent className="-ml-2">
             {showGreetings && (
-              <>
-                <CarouselItem key="greet-new-month" className="pl-2 basis-full">
-                  <GreetingSlide
-                    title="Happy New Month"
-                    subtitle="✦ May your frequency rise ✦"
-                    emoji="🌟"
-                  />
-                </CarouselItem>
-                <CarouselItem key="greet-workers-day" className="pl-2 basis-full">
-                  <GreetingSlide
-                    title="Happy Workers' Day"
-                    subtitle="✦ Honoring every hustle ✦"
-                    emoji="⚡"
-                  />
-                </CarouselItem>
-              </>
+              <CarouselItem key="greet-new-week" className="pl-2 basis-full">
+                <GreetingSlide
+                  title="Happy New Week"
+                  subtitle="✦ Tune in, level up ✦"
+                  emoji="🌠"
+                />
+              </CarouselItem>
             )}
             {picks.map((t) => (
               <CarouselItem key={t.id} className="pl-2 basis-full">
