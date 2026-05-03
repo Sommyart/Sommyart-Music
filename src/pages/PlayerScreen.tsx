@@ -6,6 +6,7 @@ import { WaveformVisualizer } from "@/components/player/WaveformVisualizer";
 import { ProgressBar } from "@/components/player/ProgressBar";
 import { PlayerControls } from "@/components/player/PlayerControls";
 import { LyricsView } from "@/components/player/LyricsView";
+import { InlineLyricsTicker } from "@/components/player/InlineLyricsTicker";
 import { useMusicPlayerContext } from "@/contexts/MusicPlayerContext";
 import { cn } from "@/lib/utils";
 
