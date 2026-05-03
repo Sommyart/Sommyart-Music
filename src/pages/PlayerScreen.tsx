@@ -6,6 +6,7 @@ import { WaveformVisualizer } from "@/components/player/WaveformVisualizer";
 import { ProgressBar } from "@/components/player/ProgressBar";
 import { PlayerControls } from "@/components/player/PlayerControls";
 import { LyricsView } from "@/components/player/LyricsView";
+import { InlineLyricsTicker } from "@/components/player/InlineLyricsTicker";
 import { useMusicPlayerContext } from "@/contexts/MusicPlayerContext";
 import { cn } from "@/lib/utils";
 
@@ -61,7 +62,14 @@ const PlayerScreen = () => {
               </h2>
               <p className="text-sm text-muted-foreground mt-1">{player.currentTrack?.artist || "—"}</p>
             </div>
-            <WaveformVisualizer isPlaying={player.isPlaying} />
+            {hasLyrics ? (
+              <InlineLyricsTicker
+                lyrics={player.currentTrack!.lyrics!}
+                currentTime={player.currentTime}
+              />
+            ) : (
+              <WaveformVisualizer isPlaying={player.isPlaying} />
+            )}
           </>
         )}
       </div>
