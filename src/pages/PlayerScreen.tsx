@@ -62,7 +62,14 @@ const PlayerScreen = () => {
               </h2>
               <p className="text-sm text-muted-foreground mt-1">{player.currentTrack?.artist || "—"}</p>
             </div>
-            <WaveformVisualizer isPlaying={player.isPlaying} />
+            {hasLyrics ? (
+              <InlineLyricsTicker
+                lyrics={player.currentTrack!.lyrics!}
+                currentTime={player.currentTime}
+              />
+            ) : (
+              <WaveformVisualizer isPlaying={player.isPlaying} />
+            )}
           </>
         )}
       </div>
