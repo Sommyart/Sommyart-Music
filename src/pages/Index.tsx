@@ -8,8 +8,15 @@ import { useMusicPlayerContext } from "@/contexts/MusicPlayerContext";
 import { Track } from "@/lib/tracks";
 
 const Index = () => {
-  const { playlist, currentTrackIndex, isPlaying, playTrack, newestTracks, songsLoading, kosherTracks, mainTracks } = useMusicPlayerContext();
+  const { playlist, currentTrackIndex, isPlaying, playTrack, newestTrack, newestTracks, songsLoading, kosherTracks, mainTracks } = useMusicPlayerContext();
   const [searchQuery, setSearchQuery] = useState("");
+
+  const handlePlayNewest = () => {
+    if (newestTrack) {
+      const idx = playlist.findIndex((t) => t.id === newestTrack.id);
+      if (idx >= 0) playTrack(idx);
+    }
+  };
 
   const handlePlayTrackById = (id: string) => {
     const idx = playlist.findIndex((t) => t.id === id);
