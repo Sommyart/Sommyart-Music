@@ -62,7 +62,7 @@ function PromoSlide({ track, onPlay, isNew }: { track: Track; onPlay: () => void
   );
 }
 
-export function AdBanner({ tracks, onPlay }: Props) {
+export function AdBanner({ tracks, newReleases = [], onPlay }: Props) {
   const autoplay = useRef(
     Autoplay({ delay: 3500, stopOnInteraction: false, stopOnMouseEnter: true })
   );
