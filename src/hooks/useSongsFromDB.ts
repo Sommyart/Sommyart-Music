@@ -10,6 +10,7 @@ export function useSongsFromDB() {
   const [songs, setSongs] = useState<Track[]>(staticTracks);
   const [loading, setLoading] = useState(true);
   const [newestTrack, setNewestTrack] = useState<Track | null>(null);
+  const [newestTracks, setNewestTracks] = useState<Track[]>([]);
 
   const fetchSongs = useCallback(async () => {
     setLoading(true);
