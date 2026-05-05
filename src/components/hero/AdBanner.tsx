@@ -11,6 +11,7 @@ import {
 
 interface Props {
   tracks: Track[];
+  newReleases?: Track[];
   onPlay: (track: Track) => void;
 }
 
