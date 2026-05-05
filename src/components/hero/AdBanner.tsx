@@ -132,6 +132,11 @@ export function AdBanner({ tracks, newReleases = [], onPlay }: Props) {
                 />
               </CarouselItem>
             )}
+            {newReleases.map((t) => (
+              <CarouselItem key={`new-${t.id}`} className="pl-2 basis-full">
+                <PromoSlide track={t} isNew onPlay={() => onPlay(t)} />
+              </CarouselItem>
+            ))}
             {picks.map((t) => (
               <CarouselItem key={t.id} className="pl-2 basis-full">
                 <PromoSlide track={t} onPlay={() => onPlay(t)} />
