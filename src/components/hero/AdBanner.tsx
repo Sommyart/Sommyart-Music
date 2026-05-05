@@ -11,10 +11,11 @@ import {
 
 interface Props {
   tracks: Track[];
+  newReleases?: Track[];
   onPlay: (track: Track) => void;
 }
 
-function PromoSlide({ track, onPlay }: { track: Track; onPlay: () => void }) {
+function PromoSlide({ track, onPlay, isNew }: { track: Track; onPlay: () => void; isNew?: boolean }) {
   const [cover, setCover] = useState<string | null>(null);
 
   useEffect(() => {
@@ -36,6 +37,12 @@ function PromoSlide({ track, onPlay }: { track: Track; onPlay: () => void }) {
         <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/30 to-transparent" />
         <div className="absolute inset-0 holographic-shimmer opacity-30" />
 
+        {isNew && (
+          <div className="absolute top-3 left-3 px-2 py-1 rounded-full glass border border-primary/40 text-[9px] font-display tracking-[0.3em] text-primary uppercase animate-pulse-neon">
+            ✦ New Release
+          </div>
+        )}
+
         <div className="absolute bottom-3 left-3 right-14">
           <p className="text-sm font-display tracking-wide text-foreground line-clamp-1">
             {track.title}
@@ -55,7 +62,7 @@ function PromoSlide({ track, onPlay }: { track: Track; onPlay: () => void }) {
   );
 }
 
-export function AdBanner({ tracks, onPlay }: Props) {
+export function AdBanner({ tracks, newReleases = [], onPlay }: Props) {
   const autoplay = useRef(
     Autoplay({ delay: 3500, stopOnInteraction: false, stopOnMouseEnter: true })
   );
@@ -125,6 +132,11 @@ export function AdBanner({ tracks, onPlay }: Props) {
                 />
               </CarouselItem>
             )}
+            {newReleases.map((t) => (
+              <CarouselItem key={`new-${t.id}`} className="pl-2 basis-full">
+                <PromoSlide track={t} isNew onPlay={() => onPlay(t)} />
+              </CarouselItem>
+            ))}
             {picks.map((t) => (
               <CarouselItem key={t.id} className="pl-2 basis-full">
                 <PromoSlide track={t} onPlay={() => onPlay(t)} />
