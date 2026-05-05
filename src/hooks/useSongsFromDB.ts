@@ -10,6 +10,7 @@ export function useSongsFromDB() {
   const [songs, setSongs] = useState<Track[]>(staticTracks);
   const [loading, setLoading] = useState(true);
   const [newestTrack, setNewestTrack] = useState<Track | null>(null);
+  const [newestTracks, setNewestTracks] = useState<Track[]>([]);
 
   const fetchSongs = useCallback(async () => {
     setLoading(true);
@@ -22,6 +23,7 @@ export function useSongsFromDB() {
       if (error || !data || data.length === 0) {
         setSongs(staticTracks);
         setNewestTrack(staticTracks[0] || null);
+        setNewestTracks(staticTracks.slice(0, 2));
       } else {
         const mapped: Track[] = data.map((s: any) => ({
           id: s.id,
@@ -33,7 +35,6 @@ export function useSongsFromDB() {
           genre: s.genre || undefined,
           lyrics: Array.isArray(s.lyrics) ? s.lyrics : null,
         }));
-        // Merge DB tracks with static fallback tracks (old catalog), de-duped by id and by title+artist
         const seen = new Set<string>();
         const keyOf = (t: Track) =>
           `${t.title.trim().toLowerCase()}__${t.artist.trim().toLowerCase()}`;
@@ -45,16 +46,15 @@ export function useSongsFromDB() {
           seen.add(k);
           merged.push(t);
         }
-        // Newest = most recent DB upload (already sorted DESC by uploaded_at)
         const newest = mapped[0] || merged[0] || null;
-        // Keep newest-first order: DB tracks (sorted DESC by uploaded_at) come before
-        // static fallback tracks which have no uploaded_at.
         setSongs(merged);
         setNewestTrack(newest);
+        setNewestTracks(mapped.slice(0, 2));
       }
     } catch {
       setSongs(staticTracks);
       setNewestTrack(staticTracks[0] || null);
+      setNewestTracks(staticTracks.slice(0, 2));
     } finally {
       setLoading(false);
     }
@@ -64,7 +64,6 @@ export function useSongsFromDB() {
     fetchSongs();
   }, [fetchSongs]);
 
-  // Auto-refresh when browser comes back online
   useEffect(() => {
     const handleOnline = () => {
       fetchSongs();
@@ -75,5 +74,5 @@ export function useSongsFromDB() {
 
   const allSongs = [...songs, ...staticKosherTracks.filter(kt => !songs.some(s => s.id === kt.id))];
 
-  return { songs, allSongs, kosherTracks: staticKosherTracks, loading, newestTrack, refetch: fetchSongs };
+  return { songs, allSongs, kosherTracks: staticKosherTracks, loading, newestTrack, newestTracks, refetch: fetchSongs };
 }

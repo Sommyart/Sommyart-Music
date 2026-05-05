@@ -5,6 +5,7 @@ import { Track } from "@/lib/tracks";
 
 type PlayerContextType = ReturnType<typeof useMusicPlayer> & {
   newestTrack: ReturnType<typeof useSongsFromDB>["newestTrack"];
+  newestTracks: Track[];
   songsLoading: boolean;
   kosherTracks: Track[];
   mainTracks: Track[];
@@ -13,11 +14,11 @@ type PlayerContextType = ReturnType<typeof useMusicPlayer> & {
 const MusicPlayerContext = createContext<PlayerContextType | null>(null);
 
 export function MusicPlayerProvider({ children }: { children: ReactNode }) {
-  const { songs, allSongs, kosherTracks, loading, newestTrack } = useSongsFromDB();
+  const { songs, allSongs, kosherTracks, loading, newestTrack, newestTracks } = useSongsFromDB();
   const player = useMusicPlayer(allSongs);
 
   return (
-    <MusicPlayerContext.Provider value={{ ...player, newestTrack, songsLoading: loading, kosherTracks, mainTracks: songs }}>
+    <MusicPlayerContext.Provider value={{ ...player, newestTrack, newestTracks, songsLoading: loading, kosherTracks, mainTracks: songs }}>
       {children}
     </MusicPlayerContext.Provider>
   );

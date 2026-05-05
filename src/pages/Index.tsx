@@ -8,13 +8,12 @@ import { useMusicPlayerContext } from "@/contexts/MusicPlayerContext";
 import { Track } from "@/lib/tracks";
 
 const Index = () => {
-  const { playlist, currentTrackIndex, isPlaying, playTrack, newestTrack, songsLoading, kosherTracks, mainTracks } = useMusicPlayerContext();
+  const { playlist, currentTrackIndex, isPlaying, playTrack, newestTracks, songsLoading, kosherTracks, mainTracks } = useMusicPlayerContext();
   const [searchQuery, setSearchQuery] = useState("");
 
-  const handlePlayNewest = () => {
-    if (newestTrack) {
-      playTrack(0);
-    }
+  const handlePlayTrackById = (id: string) => {
+    const idx = playlist.findIndex((t) => t.id === id);
+    if (idx >= 0) playTrack(idx);
   };
 
   const handlePlayTrack = (track: Track) => {
@@ -62,14 +61,18 @@ const Index = () => {
       {/* Featured Picks Ad Banner — auto-sliding carousel of 3 random tracks */}
       <AdBanner tracks={mainTracks} onPlay={handlePlayTrack} />
 
-      {/* Hero — Newest Track */}
-      {newestTrack && (
-        <HeroSection
-          track={newestTrack}
-          isPlaying={currentTrackIndex === 0 && isPlaying}
-          onPlay={handlePlayNewest}
-        />
-      )}
+      {/* Hero — Newest Tracks (carousel of latest releases) */}
+      {newestTracks.map((t, i) => {
+        const idx = playlist.findIndex((p) => p.id === t.id);
+        return (
+          <HeroSection
+            key={t.id}
+            track={t}
+            isPlaying={idx === currentTrackIndex && isPlaying}
+            onPlay={() => handlePlayTrackById(t.id)}
+          />
+        );
+      })}
 
       {/* Divider */}
       <div className="px-6 py-2">
