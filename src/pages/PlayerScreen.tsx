@@ -81,6 +81,22 @@ const PlayerScreen = () => {
           duration={player.duration}
           onSeek={player.seek}
         />
+        <div className="flex items-center justify-center gap-2">
+          {[0.75, 1, 1.25, 1.5].map((r) => (
+            <button
+              key={r}
+              onClick={() => player.setPlaybackRate(r)}
+              className={cn(
+                "px-3 py-1 rounded-full text-[10px] font-display tracking-widest border transition-all",
+                player.playbackRate === r
+                  ? "border-primary text-primary neon-text neon-glow"
+                  : "border-border/40 text-muted-foreground hover:text-foreground hover:border-primary/40"
+              )}
+            >
+              {r}×
+            </button>
+          ))}
+        </div>
         <PlayerControls
           isPlaying={player.isPlaying}
           shuffle={player.shuffle}
