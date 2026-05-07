@@ -11,6 +11,13 @@ export function useMusicPlayer(playlist: Track[]) {
   const [shuffle, setShuffle] = useState(false);
   const [repeat, setRepeat] = useState<"off" | "all" | "one">("off");
   const [extractedCover, setExtractedCover] = useState<string | null>(null);
+  const [playbackRate, setPlaybackRateState] = useState(1);
+
+  const setPlaybackRate = useCallback((rate: number) => {
+    const r = Math.min(2, Math.max(0.5, rate));
+    setPlaybackRateState(r);
+    if (audioRef.current) audioRef.current.playbackRate = r;
+  }, []);
 
   const currentTrack = playlist[currentTrackIndex] || null;
 
@@ -51,6 +58,7 @@ export function useMusicPlayer(playlist: Track[]) {
       audio.src = currentTrack.audioUrl;
       audio.load();
     }
+    audio.playbackRate = playbackRate;
     if (isPlaying) {
       audio.play().catch((err) => {
         console.error("Playback failed:", err, currentTrack.audioUrl);
@@ -112,5 +120,7 @@ export function useMusicPlayer(playlist: Track[]) {
     playTrack,
     setShuffle: () => setShuffle((s) => !s),
     setRepeat: () => setRepeat((r) => r === "off" ? "all" : r === "all" ? "one" : "off"),
+    playbackRate,
+    setPlaybackRate,
   };
 }
