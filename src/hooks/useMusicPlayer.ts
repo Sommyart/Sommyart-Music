@@ -58,6 +58,7 @@ export function useMusicPlayer(playlist: Track[]) {
       audio.src = currentTrack.audioUrl;
       audio.load();
     }
+    audio.playbackRate = playbackRate;
     if (isPlaying) {
       audio.play().catch((err) => {
         console.error("Playback failed:", err, currentTrack.audioUrl);
