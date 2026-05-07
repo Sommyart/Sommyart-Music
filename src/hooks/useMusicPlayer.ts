@@ -11,6 +11,13 @@ export function useMusicPlayer(playlist: Track[]) {
   const [shuffle, setShuffle] = useState(false);
   const [repeat, setRepeat] = useState<"off" | "all" | "one">("off");
   const [extractedCover, setExtractedCover] = useState<string | null>(null);
+  const [playbackRate, setPlaybackRateState] = useState(1);
+
+  const setPlaybackRate = useCallback((rate: number) => {
+    const r = Math.min(2, Math.max(0.5, rate));
+    setPlaybackRateState(r);
+    if (audioRef.current) audioRef.current.playbackRate = r;
+  }, []);
 
   const currentTrack = playlist[currentTrackIndex] || null;
 
