@@ -119,5 +119,7 @@ export function useMusicPlayer(playlist: Track[]) {
     playTrack,
     setShuffle: () => setShuffle((s) => !s),
     setRepeat: () => setRepeat((r) => r === "off" ? "all" : r === "all" ? "one" : "off"),
+    playbackRate,
+    setPlaybackRate,
   };
 }
