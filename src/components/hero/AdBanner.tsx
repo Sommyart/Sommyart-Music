@@ -103,6 +103,11 @@ export function AdBanner({ tracks, newReleases = [], onPlay }: Props) {
   // Show "Happy New Week" greeting on Mondays (WAT).
   const showGreetings = new Date().getDay() === 1;
 
+  // Show "Shabbat Shalom" greeting until 7pm WAT (UTC+1) on 2026-05-09.
+  // 19:00 WAT == 18:00 UTC.
+  const shabbatEndUtc = Date.UTC(2026, 4, 9, 18, 0, 0);
+  const showShabbat = Date.now() < shabbatEndUtc;
+
   return (
     <section className="relative px-4 mb-4">
       <div className="relative rounded-2xl overflow-hidden glass border border-primary/20 p-4">
@@ -129,6 +134,15 @@ export function AdBanner({ tracks, newReleases = [], onPlay }: Props) {
                   title="Happy New Week"
                   subtitle="✦ Tune in, level up ✦"
                   emoji="🌠"
+                />
+              </CarouselItem>
+            )}
+            {showShabbat && (
+              <CarouselItem key="greet-shabbat" className="pl-2 basis-full">
+                <GreetingSlide
+                  title="Shabbat Shalom"
+                  subtitle="✦ Peace & rest be upon you ✦"
+                  emoji="🕎"
                 />
               </CarouselItem>
             )}
