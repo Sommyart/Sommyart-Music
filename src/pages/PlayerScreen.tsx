@@ -24,7 +24,7 @@ const PlayerScreen = () => {
       <div className="absolute inset-0 bg-gradient-to-b from-neon-cyan/5 via-transparent to-neon-purple/5 pointer-events-none" />
 
       {/* Header */}
-      <div className="relative flex items-center justify-between px-6 pt-12 pb-4">
+      <div className="relative flex items-center justify-between px-6 pt-12 pb-2">
         <button onClick={() => navigate(-1)} className="text-muted-foreground hover:text-foreground transition-colors">
           <ChevronDown size={28} />
         </button>
@@ -43,6 +43,41 @@ const PlayerScreen = () => {
         >
           <Mic2 size={22} />
         </button>
+      </div>
+
+      {/* Connect bar — output device + transfer */}
+      <div className="relative px-6 pb-2">
+        <DeviceSheet
+          trigger={
+            <button
+              className={cn(
+                "w-full flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-xs transition-all",
+                player.isThisDeviceActive
+                  ? "border-primary/40 text-primary hover:bg-primary/5"
+                  : "border-amber-400/50 text-amber-300 bg-amber-400/5 hover:bg-amber-400/10"
+              )}
+              aria-label="Connect to a device"
+            >
+              <span className="flex items-center gap-2 min-w-0">
+                {(() => {
+                  const label = player.activeDevice?.output_label || "";
+                  const Icon = /bluetooth|airpods|buds|headset|wireless/i.test(label) ? Bluetooth : Volume2;
+                  return <Icon size={14} className="shrink-0" />;
+                })()}
+                <span className="truncate">
+                  {player.isThisDeviceActive ? "Playing on " : "Listening on "}
+                  <span className="font-medium">
+                    {player.activeDevice?.name || "this device"}
+                  </span>
+                  {player.activeDevice?.output_label && (
+                    <span className="text-muted-foreground"> · {player.activeDevice.output_label}</span>
+                  )}
+                </span>
+              </span>
+              <Cast size={14} className="shrink-0 opacity-70" />
+            </button>
+          }
+        />
       </div>
 
       {/* Main area: artwork OR lyrics */}
