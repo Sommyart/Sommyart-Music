@@ -1,4 +1,4 @@
-import { ChevronDown, Mic2 } from "lucide-react";
+import { ChevronDown, Mic2, Volume2, Bluetooth, Cast } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { HolographicArtwork } from "@/components/player/HolographicArtwork";
@@ -7,6 +7,7 @@ import { ProgressBar } from "@/components/player/ProgressBar";
 import { PlayerControls } from "@/components/player/PlayerControls";
 import { LyricsView } from "@/components/player/LyricsView";
 import { InlineLyricsTicker } from "@/components/player/InlineLyricsTicker";
+import { DeviceSheet } from "@/components/player/DeviceSheet";
 import { useMusicPlayerContext } from "@/contexts/MusicPlayerContext";
 import { cn } from "@/lib/utils";
 
