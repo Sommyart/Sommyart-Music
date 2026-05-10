@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Track } from "@/lib/tracks";
 import { extractCoverArt } from "@/lib/extractCoverArt";
 
-export function useMusicPlayer(playlist: Track[]) {
+export function useMusicPlayer(playlist: Track[], audioEnabled: boolean = true) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -51,6 +51,17 @@ export function useMusicPlayer(playlist: Track[]) {
     return () => { audio.pause(); audio.src = ""; };
   }, []);
 
+  // Pause local audio if this device is not the active one
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (!audioEnabled) {
+      audio.pause();
+    } else if (isPlaying && audio.paused) {
+      audio.play().catch(() => {});
+    }
+  }, [audioEnabled, isPlaying]);
+
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio || !currentTrack) return;
@@ -59,24 +70,24 @@ export function useMusicPlayer(playlist: Track[]) {
       audio.load();
     }
     audio.playbackRate = playbackRate;
-    if (isPlaying) {
+    if (isPlaying && audioEnabled) {
       audio.play().catch((err) => {
         console.error("Playback failed:", err, currentTrack.audioUrl);
       });
     }
-  }, [currentTrack?.id, isPlaying]);
+  }, [currentTrack?.id, isPlaying, audioEnabled]);
 
   const togglePlay = useCallback(() => {
     const audio = audioRef.current;
     if (!audio) return;
     if (isPlaying) { audio.pause(); setIsPlaying(false); }
-    else { audio.play().catch(() => {}); setIsPlaying(true); }
-  }, [isPlaying]);
+    else { if (audioEnabled) audio.play().catch(() => {}); setIsPlaying(true); }
+  }, [isPlaying, audioEnabled]);
 
   const handleNext = useCallback(() => {
     if (repeat === "one") {
       const audio = audioRef.current;
-      if (audio) { audio.currentTime = 0; audio.play().catch(() => {}); }
+      if (audio) { audio.currentTime = 0; if (audioEnabled) audio.play().catch(() => {}); }
       return;
     }
     if (shuffle) {
@@ -86,7 +97,7 @@ export function useMusicPlayer(playlist: Track[]) {
     } else {
       setCurrentTrackIndex((i) => (i + 1) % playlist.length);
     }
-  }, [shuffle, repeat, currentTrackIndex, playlist.length]);
+  }, [shuffle, repeat, currentTrackIndex, playlist.length, audioEnabled]);
 
   const handlePrev = useCallback(() => {
     const audio = audioRef.current;
@@ -103,6 +114,29 @@ export function useMusicPlayer(playlist: Track[]) {
     setCurrentTrackIndex(index);
     setIsPlaying(true);
   }, []);
+
+  // Remote-applied state: jump to track by id, seek, set play
+  const applyRemoteState = useCallback(
+    (s: { songId: string | null; positionSeconds: number; isPlaying: boolean; playbackRate: number }) => {
+      const audio = audioRef.current;
+      if (s.songId) {
+        const idx = playlist.findIndex((t) => t.id === s.songId);
+        if (idx >= 0 && idx !== currentTrackIndex) {
+          setCurrentTrackIndex(idx);
+        }
+      }
+      setPlaybackRateState(s.playbackRate);
+      if (audio) {
+        audio.playbackRate = s.playbackRate;
+        if (Math.abs((audio.currentTime || 0) - s.positionSeconds) > 1.5) {
+          audio.currentTime = s.positionSeconds;
+        }
+      }
+      setCurrentTime(s.positionSeconds);
+      setIsPlaying(s.isPlaying);
+    },
+    [playlist, currentTrackIndex],
+  );
 
   return {
     playlist,
@@ -122,5 +156,6 @@ export function useMusicPlayer(playlist: Track[]) {
     setRepeat: () => setRepeat((r) => r === "off" ? "all" : r === "all" ? "one" : "off"),
     playbackRate,
     setPlaybackRate,
+    applyRemoteState,
   };
 }

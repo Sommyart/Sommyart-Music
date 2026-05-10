@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      devices: {
+        Row: {
+          client_id: string
+          created_at: string
+          id: string
+          kind: string
+          last_seen_at: string
+          name: string
+          output_label: string | null
+          user_id: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          id?: string
+          kind?: string
+          last_seen_at?: string
+          name: string
+          output_label?: string | null
+          user_id: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          last_seen_at?: string
+          name?: string
+          output_label?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       downloads: {
         Row: {
           downloaded_at: string
@@ -68,6 +101,50 @@ export type Database = {
             columns: ["song_id"]
             isOneToOne: false
             referencedRelation: "songs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      playback_state: {
+        Row: {
+          active_device_id: string | null
+          is_playing: boolean
+          playback_rate: number
+          position_seconds: number
+          song_id: string | null
+          updated_at: string
+          updated_by_device: string | null
+          user_id: string
+          version: number
+        }
+        Insert: {
+          active_device_id?: string | null
+          is_playing?: boolean
+          playback_rate?: number
+          position_seconds?: number
+          song_id?: string | null
+          updated_at?: string
+          updated_by_device?: string | null
+          user_id: string
+          version?: number
+        }
+        Update: {
+          active_device_id?: string | null
+          is_playing?: boolean
+          playback_rate?: number
+          position_seconds?: number
+          song_id?: string | null
+          updated_at?: string
+          updated_by_device?: string | null
+          user_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "playback_state_active_device_id_fkey"
+            columns: ["active_device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
             referencedColumns: ["id"]
           },
         ]
