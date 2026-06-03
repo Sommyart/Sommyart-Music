@@ -21,6 +21,8 @@ type PlayerContextType = Omit<BasePlayer, "applyRemoteState"> & {
   transferTo: Sync["transferTo"];
   renameDevice: Sync["renameDevice"];
   removeDevice: Sync["removeDevice"];
+  takeOver: () => void;
+
 };
 
 const MusicPlayerContext = createContext<PlayerContextType | null>(null);
