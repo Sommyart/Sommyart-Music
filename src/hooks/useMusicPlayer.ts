@@ -117,7 +117,14 @@ export function useMusicPlayer(playlist: Track[], audioEnabled: boolean = true) 
 
   // Remote-applied state: jump to track by id, seek, set play
   const applyRemoteState = useCallback(
-    (s: { songId: string | null; positionSeconds: number; isPlaying: boolean; playbackRate: number }) => {
+    (s: {
+      songId: string | null;
+      positionSeconds: number;
+      isPlaying: boolean;
+      playbackRate: number;
+      shuffle?: boolean;
+      repeat?: "off" | "all" | "one";
+    }) => {
       const audio = audioRef.current;
       if (s.songId) {
         const idx = playlist.findIndex((t) => t.id === s.songId);
@@ -134,8 +141,16 @@ export function useMusicPlayer(playlist: Track[], audioEnabled: boolean = true) 
       }
       setCurrentTime(s.positionSeconds);
       setIsPlaying(s.isPlaying);
+      if (typeof s.shuffle === "boolean") setShuffle(s.shuffle);
+      if (s.repeat) setRepeat(s.repeat);
     },
     [playlist, currentTrackIndex],
+  );
+
+  const toggleShuffle = useCallback(() => setShuffle((s) => !s), []);
+  const cycleRepeat = useCallback(
+    () => setRepeat((r) => (r === "off" ? "all" : r === "all" ? "one" : "off")),
+    [],
   );
 
   return {
@@ -152,10 +167,13 @@ export function useMusicPlayer(playlist: Track[], audioEnabled: boolean = true) 
     handlePrev,
     seek,
     playTrack,
-    setShuffle: () => setShuffle((s) => !s),
-    setRepeat: () => setRepeat((r) => r === "off" ? "all" : r === "all" ? "one" : "off"),
+    setShuffle: toggleShuffle,
+    setShuffleValue: setShuffle,
+    setRepeat: cycleRepeat,
+    setRepeatValue: setRepeat,
     playbackRate,
     setPlaybackRate,
     applyRemoteState,
   };
 }
+

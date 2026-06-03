@@ -11,6 +11,9 @@ import { MiniPlayer } from "@/components/layout/MiniPlayer";
 import { useMusicPlayerContext } from "@/contexts/MusicPlayerContext";
 import { useDailyNotification } from "@/hooks/useDailyNotification";
 import { useNewTrackNotifier } from "@/hooks/useNewTrackNotifier";
+import { useMediaSession } from "@/hooks/useMediaSession";
+import { TakeoverBanner } from "@/components/layout/TakeoverBanner";
+
 import { useNavigate } from "react-router-dom";
 import Index from "./pages/Index";
 import PlayerScreen from "./pages/PlayerScreen";
@@ -27,7 +30,9 @@ function AppShell() {
   const { currentTrack, isPlaying, togglePlay, handleNext, handlePrev, mainTracks, songsLoading, playTrack, playlist } = useMusicPlayerContext();
   const navigate = useNavigate();
   useDailyNotification();
+  useMediaSession();
   useNewTrackNotifier(mainTracks, songsLoading, () => {
+
     // Find and play the newest dated track
     const dated = mainTracks
       .filter((t) => t.uploadedAt)
@@ -43,7 +48,9 @@ function AppShell() {
   });
   return (
     <>
+      <TakeoverBanner />
       <Routes>
+
         <Route path="/" element={<Index />} />
         <Route path="/player" element={<PlayerScreen />} />
         <Route path="/playlist" element={<PlaylistScreen />} />

@@ -1,9 +1,19 @@
-import { Download, Trash2, Play, Pause } from "lucide-react";
+import { Download, Trash2, Play, Pause, HardDrive } from "lucide-react";
 import { useDownloadContext } from "@/contexts/DownloadContext";
 import { useMusicPlayerContext } from "@/contexts/MusicPlayerContext";
 import { useState, useEffect } from "react";
 import { extractCoverArt } from "@/lib/extractCoverArt";
 import { Track } from "@/lib/tracks";
+import { Progress } from "@/components/ui/progress";
+
+function formatBytes(bytes: number): string {
+  if (!bytes || bytes < 1024) return `${bytes || 0} B`;
+  const units = ["KB", "MB", "GB", "TB"];
+  let v = bytes / 1024;
+  let i = 0;
+  while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+  return `${v.toFixed(v >= 100 ? 0 : 1)} ${units[i]}`;
+}
 
 function DownloadedTrackItem({ track, onRemove }: { track: Track & { downloadedAt: string }; onRemove: () => void }) {
   const { playlist, currentTrackIndex, isPlaying, playTrack } = useMusicPlayerContext();
@@ -40,14 +50,57 @@ function DownloadedTrackItem({ track, onRemove }: { track: Track & { downloadedA
 }
 
 const DownloadsScreen = () => {
-  const { downloadedTracks, loading, removeDownload } = useDownloadContext();
+  const { downloadedTracks, loading, removeDownload, storage, getProgress, isDownloading } = useDownloadContext();
+  const activeDownloads = downloadedTracks.filter(() => false); // placeholder for typing
+  void activeDownloads;
+
+  // Surface in-flight downloads at the top
+  const inFlight = downloadedTracks
+    .map((t) => ({ t, pct: getProgress(t.id) }))
+    .filter(({ t }) => isDownloading(t.id));
+
+  const usedPct = storage.quotaBytes > 0 ? (storage.usedBytes / storage.quotaBytes) * 100 : 0;
 
   return (
     <div className="min-h-screen pb-36">
-      <div className="px-6 pt-12 pb-6">
+      <div className="px-6 pt-12 pb-4">
         <h1 className="text-xl font-display font-bold tracking-wider text-foreground neon-text">Downloads</h1>
         <p className="text-xs text-muted-foreground mt-1">{downloadedTracks.length} track{downloadedTracks.length !== 1 ? "s" : ""} saved offline</p>
       </div>
+
+      {/* Storage stats */}
+      <div className="px-6 mb-4">
+        <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <HardDrive size={14} className="text-primary" />
+            <span className="text-xs font-display tracking-widest text-primary">STORAGE</span>
+          </div>
+          <Progress value={usedPct} className="h-1.5" />
+          <div className="flex justify-between mt-2 text-[11px] text-muted-foreground">
+            <span>{formatBytes(storage.usedBytes)} used</span>
+            <span>
+              {storage.quotaBytes > 0
+                ? `${formatBytes(Math.max(0, storage.quotaBytes - storage.usedBytes))} free`
+                : "—"}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* In-flight progress bars */}
+      {inFlight.length > 0 && (
+        <div className="px-6 mb-4 space-y-2">
+          {inFlight.map(({ t, pct }) => (
+            <div key={t.id} className="rounded-lg border border-primary/30 bg-secondary/30 p-3">
+              <div className="flex justify-between text-xs mb-1">
+                <span className="truncate text-foreground">{t.title}</span>
+                <span className="text-primary tabular-nums">{Math.round(pct * 100)}%</span>
+              </div>
+              <Progress value={pct * 100} className="h-1" />
+            </div>
+          ))}
+        </div>
+      )}
 
       {loading ? (
         <div className="flex justify-center py-8">
