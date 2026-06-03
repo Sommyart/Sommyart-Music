@@ -48,8 +48,11 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       positionSeconds: Number(pb.position_seconds) || 0,
       isPlaying: pb.is_playing && (pb.active_device_id === sync.device.id),
       playbackRate: Number(pb.playback_rate) || 1,
+      shuffle: pb.shuffle,
+      repeat: pb.repeat_mode,
     });
   }, [sync.playback?.version, sync.device?.id]);
+
 
   // ---- Push state changes from this device when it's active ----
   // Immediate push on play/pause/track/rate changes
