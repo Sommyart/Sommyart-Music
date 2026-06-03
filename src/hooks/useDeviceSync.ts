@@ -20,11 +20,14 @@ export interface PlaybackStateRow {
   position_seconds: number;
   is_playing: boolean;
   playback_rate: number;
+  shuffle: boolean;
+  repeat_mode: "off" | "all" | "one";
   active_device_id: string | null;
   updated_by_device: string | null;
   version: number;
   updated_at: string;
 }
+
 
 function detectKind(): string {
   const ua = navigator.userAgent.toLowerCase();
