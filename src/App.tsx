@@ -48,7 +48,9 @@ function AppShell() {
   });
   return (
     <>
+      <TakeoverBanner />
       <Routes>
+
         <Route path="/" element={<Index />} />
         <Route path="/player" element={<PlayerScreen />} />
         <Route path="/playlist" element={<PlaylistScreen />} />
