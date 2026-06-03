@@ -143,10 +143,47 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     };
   }, [audioEnabled, player.setPlaybackRate]);
 
+  const wrappedSetShuffle = useMemo(() => {
+    return () => {
+      const next = !player.shuffle;
+      player.setShuffleValue(next);
+      sync.pushState({ shuffle: next });
+    };
+  }, [player.shuffle, player.setShuffleValue]);
+
+  const wrappedSetRepeat = useMemo(() => {
+    return () => {
+      const next: "off" | "all" | "one" =
+        player.repeat === "off" ? "all" : player.repeat === "all" ? "one" : "off";
+      player.setRepeatValue(next);
+      sync.pushState({ repeat_mode: next });
+    };
+  }, [player.repeat, player.setRepeatValue]);
+
+  // Take over playback on this device
+  const takeOver = useMemo(() => {
+    return () => {
+      if (!sync.device) return;
+      sync.pushState({ active_device_id: sync.device.id, is_playing: true });
+    };
+  }, [sync.device, sync.pushState]);
+
   const activeDevice = useMemo(() => {
     if (!sync.playback?.active_device_id) return sync.device;
     return sync.devices.find((d) => d.id === sync.playback!.active_device_id) ?? null;
   }, [sync.devices, sync.playback?.active_device_id, sync.device]);
+
+  // Recently-played logging when active device starts a track
+  const loggedRef = useRef<string>("");
+  useEffect(() => {
+    if (!audioEnabled || !sync.userId || !player.currentTrack?.id || !player.isPlaying) return;
+    const key = `${sync.userId}|${player.currentTrack.id}`;
+    if (loggedRef.current === key) return;
+    loggedRef.current = key;
+    import("@/integrations/supabase/client").then(({ supabase }) => {
+      supabase.from("recently_played").insert({ user_id: sync.userId!, song_id: player.currentTrack!.id }).then(() => {});
+    });
+  }, [audioEnabled, sync.userId, player.currentTrack?.id, player.isPlaying]);
 
   const value: PlayerContextType = {
     ...player,
@@ -156,6 +193,8 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     handlePrev: wrappedPrev,
     playTrack: wrappedPlayTrack,
     setPlaybackRate: wrappedSetRate,
+    setShuffle: wrappedSetShuffle,
+    setRepeat: wrappedSetRepeat,
     newestTrack,
     newestTracks,
     songsLoading: loading,
@@ -168,7 +207,9 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     transferTo: sync.transferTo,
     renameDevice: sync.renameDevice,
     removeDevice: sync.removeDevice,
+    takeOver,
   };
+
 
   return <MusicPlayerContext.Provider value={value}>{children}</MusicPlayerContext.Provider>;
 }
