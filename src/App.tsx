@@ -30,7 +30,9 @@ function AppShell() {
   const { currentTrack, isPlaying, togglePlay, handleNext, handlePrev, mainTracks, songsLoading, playTrack, playlist } = useMusicPlayerContext();
   const navigate = useNavigate();
   useDailyNotification();
+  useMediaSession();
   useNewTrackNotifier(mainTracks, songsLoading, () => {
+
     // Find and play the newest dated track
     const dated = mainTracks
       .filter((t) => t.uploadedAt)
