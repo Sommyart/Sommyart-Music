@@ -111,6 +111,8 @@ export type Database = {
           is_playing: boolean
           playback_rate: number
           position_seconds: number
+          repeat_mode: string
+          shuffle: boolean
           song_id: string | null
           updated_at: string
           updated_by_device: string | null
@@ -122,6 +124,8 @@ export type Database = {
           is_playing?: boolean
           playback_rate?: number
           position_seconds?: number
+          repeat_mode?: string
+          shuffle?: boolean
           song_id?: string | null
           updated_at?: string
           updated_by_device?: string | null
@@ -133,6 +137,8 @@ export type Database = {
           is_playing?: boolean
           playback_rate?: number
           position_seconds?: number
+          repeat_mode?: string
+          shuffle?: boolean
           song_id?: string | null
           updated_at?: string
           updated_by_device?: string | null
@@ -167,6 +173,27 @@ export type Database = {
           id?: string
           user_id?: string
           username?: string
+        }
+        Relationships: []
+      }
+      recently_played: {
+        Row: {
+          id: string
+          played_at: string
+          song_id: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          played_at?: string
+          song_id: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          played_at?: string
+          song_id?: string
+          user_id?: string
         }
         Relationships: []
       }
