@@ -119,11 +119,27 @@ async function removeCachedAudio(url: string): Promise<void> {
 /**
  * Hook to manage offline downloads.
  */
+export interface StorageStats {
+  usedBytes: number;
+  quotaBytes: number;
+}
+
 export function useOfflineDownloads() {
   const [downloadedTracks, setDownloadedTracks] = useState<(Track & { downloadedAt: string })[]>([]);
   const [downloadingIds, setDownloadingIds] = useState<Set<string>>(new Set());
   const [downloadedIds, setDownloadedIds] = useState<Set<string>>(new Set());
+  const [progress, setProgress] = useState<Record<string, number>>({});
+  const [storage, setStorage] = useState<StorageStats>({ usedBytes: 0, quotaBytes: 0 });
   const [loading, setLoading] = useState(true);
+
+  const refreshStorage = useCallback(async () => {
+    try {
+      if (navigator.storage?.estimate) {
+        const est = await navigator.storage.estimate();
+        setStorage({ usedBytes: est.usage ?? 0, quotaBytes: est.quota ?? 0 });
+      }
+    } catch { /* noop */ }
+  }, []);
 
   const refresh = useCallback(async () => {
     try {
@@ -134,8 +150,9 @@ export function useOfflineDownloads() {
       // IndexedDB not available
     } finally {
       setLoading(false);
+      refreshStorage();
     }
-  }, []);
+  }, [refreshStorage]);
 
   useEffect(() => {
     refresh();
@@ -144,9 +161,12 @@ export function useOfflineDownloads() {
   const downloadTrack = useCallback(async (track: Track) => {
     if (downloadingIds.has(track.id)) return;
     setDownloadingIds((prev) => new Set(prev).add(track.id));
+    setProgress((p) => ({ ...p, [track.id]: 0 }));
     try {
-      await cacheAudio(track.audioUrl);
-      // Also cache cover art
+      await cacheAudio(track.audioUrl, (loaded, total) => {
+        const pct = total > 0 ? loaded / total : 0;
+        setProgress((p) => ({ ...p, [track.id]: pct }));
+      });
       if (track.coverUrl) {
         try { await cacheAudio(track.coverUrl); } catch { /* optional */ }
       }
@@ -158,6 +178,11 @@ export function useOfflineDownloads() {
       setDownloadingIds((prev) => {
         const next = new Set(prev);
         next.delete(track.id);
+        return next;
+      });
+      setProgress((p) => {
+        const next = { ...p };
+        delete next[track.id];
         return next;
       });
     }
@@ -175,6 +200,7 @@ export function useOfflineDownloads() {
 
   const isDownloaded = useCallback((id: string) => downloadedIds.has(id), [downloadedIds]);
   const isDownloading = useCallback((id: string) => downloadingIds.has(id), [downloadingIds]);
+  const getProgress = useCallback((id: string) => progress[id] ?? 0, [progress]);
 
   return {
     downloadedTracks,
@@ -183,6 +209,9 @@ export function useOfflineDownloads() {
     removeDownload,
     isDownloaded,
     isDownloading,
+    getProgress,
+    storage,
     refresh,
   };
 }
+
