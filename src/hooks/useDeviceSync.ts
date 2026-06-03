@@ -195,6 +195,8 @@ export function useDeviceSync() {
         position_seconds: patch.position_seconds ?? playback?.position_seconds ?? 0,
         is_playing: patch.is_playing ?? playback?.is_playing ?? false,
         playback_rate: patch.playback_rate ?? playback?.playback_rate ?? 1,
+        shuffle: patch.shuffle ?? playback?.shuffle ?? false,
+        repeat_mode: patch.repeat_mode ?? playback?.repeat_mode ?? "off",
         active_device_id: patch.active_device_id ?? playback?.active_device_id ?? device.id,
         updated_by_device: device.id,
         version: (playback?.version ?? 0) + 1,
@@ -202,6 +204,7 @@ export function useDeviceSync() {
       };
       const { error } = await supabase.from("playback_state").upsert(next, { onConflict: "user_id" });
       if (error) console.error("pushState error", error);
+
     },
     [userId, device, playback],
   );
