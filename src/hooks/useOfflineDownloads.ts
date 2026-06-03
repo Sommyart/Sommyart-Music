@@ -68,12 +68,46 @@ async function isTrackDownloaded(id: string): Promise<boolean> {
 
 /**
  * Download an audio file into the Cache API (app-only, not accessible externally).
+ * Reports progress via callback (0..1).
  */
-async function cacheAudio(url: string): Promise<void> {
+async function cacheAudio(
+  url: string,
+  onProgress?: (loaded: number, total: number) => void,
+): Promise<number> {
   const cache = await caches.open(CACHE_NAME);
   const fullUrl = url.startsWith("http") ? url : `${window.location.origin}${url}`;
-  await cache.add(fullUrl);
+
+  // Stream the response so we can show progress.
+  const res = await fetch(fullUrl);
+  if (!res.ok || !res.body) {
+    // Fallback: opaque cache.add
+    await cache.add(fullUrl);
+    return 0;
+  }
+  const totalHeader = res.headers.get("Content-Length");
+  const total = totalHeader ? parseInt(totalHeader, 10) : 0;
+  const reader = res.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let loaded = 0;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value) {
+      chunks.push(value);
+      loaded += value.byteLength;
+      onProgress?.(loaded, total);
+    }
+  }
+  const blob = new Blob(chunks as BlobPart[], {
+    type: res.headers.get("Content-Type") || "audio/mpeg",
+  });
+  const headers = new Headers(res.headers);
+  if (!headers.has("Content-Length")) headers.set("Content-Length", String(blob.size));
+  await cache.put(fullUrl, new Response(blob, { headers, status: 200 }));
+  return blob.size;
 }
+
 
 /** Remove an audio file from Cache API */
 async function removeCachedAudio(url: string): Promise<void> {
