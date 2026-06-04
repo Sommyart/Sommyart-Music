@@ -94,8 +94,18 @@ export function useMusicPlayer(playlist: Track[], audioEnabled: boolean = true) 
       let next = Math.floor(Math.random() * playlist.length);
       if (next === currentTrackIndex && playlist.length > 1) next = (next + 1) % playlist.length;
       setCurrentTrackIndex(next);
+      return;
+    }
+    if (currentTrackIndex < playlist.length - 1) {
+      setCurrentTrackIndex((i) => i + 1);
+    } else if (repeat === "all") {
+      setCurrentTrackIndex(0);
     } else {
-      setCurrentTrackIndex((i) => (i + 1) % playlist.length);
+      // End of playlist, no repeat: stop
+      const audio = audioRef.current;
+      if (audio) { audio.pause(); audio.currentTime = 0; }
+      setIsPlaying(false);
+      setCurrentTime(0);
     }
   }, [shuffle, repeat, currentTrackIndex, playlist.length, audioEnabled]);
 
