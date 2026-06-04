@@ -70,7 +70,7 @@ export function useSongsFromDB() {
       );
       setSongs(alphaStatic);
       setNewestTrack(alphaStatic[0] || null);
-      setNewestTracks(alphaStatic.slice(0, 2));
+      setNewestTracks([]);
     } finally {
       setLoading(false);
     }
