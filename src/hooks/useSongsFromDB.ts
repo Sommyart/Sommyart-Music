@@ -26,7 +26,7 @@ export function useSongsFromDB() {
         );
         setSongs(alphaStatic);
         setNewestTrack(alphaStatic[0] || null);
-        setNewestTracks(alphaStatic.slice(0, 2));
+        setNewestTracks([]);
       } else {
         const mapped: Track[] = data.map((s: any) => ({
           id: s.id,
@@ -53,9 +53,16 @@ export function useSongsFromDB() {
         const newest = [...merged].sort((a, b) =>
           (b.uploadedAt || "").localeCompare(a.uploadedAt || "")
         );
+        const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+        const now = Date.now();
+        const withinWeek = newest.filter((t) => {
+          if (!t.uploadedAt) return false;
+          const ts = new Date(t.uploadedAt).getTime();
+          return !isNaN(ts) && now - ts <= ONE_WEEK_MS;
+        });
         setSongs(merged);
         setNewestTrack(newest[0] || merged[0] || null);
-        setNewestTracks(newest.slice(0, 2));
+        setNewestTracks(withinWeek.slice(0, 5));
       }
     } catch {
       const alphaStatic = [...staticTracks].sort((a, b) =>
@@ -63,7 +70,7 @@ export function useSongsFromDB() {
       );
       setSongs(alphaStatic);
       setNewestTrack(alphaStatic[0] || null);
-      setNewestTracks(alphaStatic.slice(0, 2));
+      setNewestTracks([]);
     } finally {
       setLoading(false);
     }
