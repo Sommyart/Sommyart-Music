@@ -18,12 +18,15 @@ export function useSongsFromDB() {
       const { data, error } = await supabase
         .from("songs")
         .select("*")
-        .order("uploaded_at", { ascending: false });
+        .order("title", { ascending: true });
 
       if (error || !data || data.length === 0) {
-        setSongs(staticTracks);
-        setNewestTrack(staticTracks[0] || null);
-        setNewestTracks(staticTracks.slice(0, 2));
+        const alphaStatic = [...staticTracks].sort((a, b) =>
+          a.title.localeCompare(b.title)
+        );
+        setSongs(alphaStatic);
+        setNewestTrack(alphaStatic[0] || null);
+        setNewestTracks(alphaStatic.slice(0, 2));
       } else {
         const mapped: Track[] = data.map((s: any) => ({
           id: s.id,
@@ -46,15 +49,21 @@ export function useSongsFromDB() {
           seen.add(k);
           merged.push(t);
         }
-        const newest = mapped[0] || merged[0] || null;
+        merged.sort((a, b) => a.title.localeCompare(b.title));
+        const newest = [...merged].sort((a, b) =>
+          (b.uploadedAt || "").localeCompare(a.uploadedAt || "")
+        );
         setSongs(merged);
-        setNewestTrack(newest);
-        setNewestTracks(mapped.slice(0, 2));
+        setNewestTrack(newest[0] || merged[0] || null);
+        setNewestTracks(newest.slice(0, 2));
       }
     } catch {
-      setSongs(staticTracks);
-      setNewestTrack(staticTracks[0] || null);
-      setNewestTracks(staticTracks.slice(0, 2));
+      const alphaStatic = [...staticTracks].sort((a, b) =>
+        a.title.localeCompare(b.title)
+      );
+      setSongs(alphaStatic);
+      setNewestTrack(alphaStatic[0] || null);
+      setNewestTracks(alphaStatic.slice(0, 2));
     } finally {
       setLoading(false);
     }
