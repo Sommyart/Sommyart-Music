@@ -26,7 +26,7 @@ export function useSongsFromDB() {
         );
         setSongs(alphaStatic);
         setNewestTrack(alphaStatic[0] || null);
-        setNewestTracks(alphaStatic.slice(0, 2));
+        setNewestTracks([]);
       } else {
         const mapped: Track[] = data.map((s: any) => ({
           id: s.id,
