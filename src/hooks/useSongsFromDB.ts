@@ -81,7 +81,8 @@ export function useSongsFromDB() {
     return () => window.removeEventListener("online", handleOnline);
   }, [fetchSongs]);
 
-  const allSongs = [...songs, ...staticKosherTracks.filter(kt => !songs.some(s => s.id === kt.id))];
+  const allSongs = [...songs, ...staticKosherTracks.filter(kt => !songs.some(s => s.id === kt.id))]
+    .sort((a, b) => a.title.localeCompare(b.title));
 
   return { songs, allSongs, kosherTracks: staticKosherTracks, loading, newestTrack, newestTracks, refetch: fetchSongs };
 }
