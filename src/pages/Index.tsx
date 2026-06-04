@@ -38,13 +38,10 @@ const Index = () => {
     track.title.toLowerCase().includes(q) || track.artist.toLowerCase().includes(q)
   );
 
-  // Newest releases first; tracks without an upload date fall to the bottom (alpha)
-  const sortedMainTracks = [...filteredMainTracks].sort((a, b) => {
-    const aTime = a.uploadedAt ? new Date(a.uploadedAt).getTime() : 0;
-    const bTime = b.uploadedAt ? new Date(b.uploadedAt).getTime() : 0;
-    if (aTime !== bTime) return bTime - aTime;
-    return a.title.localeCompare(b.title);
-  });
+  // Alphabetical order for the main library list
+  const sortedMainTracks = [...filteredMainTracks].sort((a, b) =>
+    a.title.localeCompare(b.title)
+  );
 
   return (
     <div className="min-h-screen pb-36">
