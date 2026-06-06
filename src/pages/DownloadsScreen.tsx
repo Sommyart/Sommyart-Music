@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { extractCoverArt } from "@/lib/extractCoverArt";
 import { Track } from "@/lib/tracks";
 import { Progress } from "@/components/ui/progress";
+import { SEO } from "@/components/SEO";
 
 function formatBytes(bytes: number): string {
   if (!bytes || bytes < 1024) return `${bytes || 0} B`;
@@ -63,6 +64,11 @@ const DownloadsScreen = () => {
 
   return (
     <div className="min-h-screen pb-36">
+      <SEO
+        title="Offline Downloads | Sommyart Music"
+        description="Manage tracks saved for offline playback on Sommyart Music. Listen to your favourite holographic beats anywhere — no connection required."
+        path="/downloads"
+      />
       <div className="px-6 pt-12 pb-4">
         <h1 className="text-xl font-display font-bold tracking-wider text-foreground neon-text">Downloads</h1>
         <p className="text-xs text-muted-foreground mt-1">{downloadedTracks.length} track{downloadedTracks.length !== 1 ? "s" : ""} saved offline</p>

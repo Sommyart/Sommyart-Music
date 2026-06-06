@@ -3,6 +3,7 @@ import { Search, X, Star, Music2, ChevronDown } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { TrackItem } from "@/components/playlist/TrackItem";
 import { useMusicPlayerContext } from "@/contexts/MusicPlayerContext";
+import { SEO } from "@/components/SEO";
 import { Track } from "@/lib/tracks";
 
 const PlaylistScreen = () => {
@@ -37,6 +38,11 @@ const PlaylistScreen = () => {
 
   return (
     <div className="min-h-screen pb-36">
+      <SEO
+        title="Playlist — Browse All Tracks | Sommyart Music"
+        description="Browse the full Sommyart Music library by genre, search by title or artist, and explore the Kosher Acapella section. Holographic streaming, made simple."
+        path="/playlist"
+      />
       <div className="px-6 pt-12 pb-4">
         <h1 className="text-xl font-display font-bold tracking-wider text-foreground neon-text">Playlist</h1>
         <p className="text-xs text-muted-foreground mt-1">{playlist.length} tracks</p>

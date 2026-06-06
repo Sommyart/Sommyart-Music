@@ -1,0 +1,12 @@
+# Sommyart Music
+
+> Futuristic neon-blue streaming app with a holographic player UI. Stream or download exclusive tracks online or offline.
+
+Sommyart Music is a mobile-first Progressive Web App for streaming and downloading curated tracks. It features a holographic player, offline playback, favourites, and a Kosher Acapella section.
+
+## Pages
+
+- [Home](/): Browse the music library, newest releases, and the hero spotlight.
+- [Player](/player): Full-screen holographic player with lyrics and waveform visualizer.
+- [Playlist](/playlist): Full song list with sorting, search, and genre filters.
+- [Downloads](/downloads): Manage tracks saved for offline playback.
