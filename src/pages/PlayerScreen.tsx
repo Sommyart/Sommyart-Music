@@ -25,7 +25,7 @@ const PlayerScreen = () => {
 
       {/* Header */}
       <div className="relative flex items-center justify-between px-6 pt-12 pb-2">
-        <button onClick={() => navigate(-1)} className="text-muted-foreground hover:text-foreground transition-colors">
+        <button onClick={() => navigate(-1)} aria-label="Go back" className="text-muted-foreground hover:text-foreground transition-colors">
           <ChevronDown size={28} />
         </button>
         <span className="text-xs font-display tracking-widest text-muted-foreground">
