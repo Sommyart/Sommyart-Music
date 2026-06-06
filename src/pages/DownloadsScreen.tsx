@@ -42,7 +42,7 @@ function DownloadedTrackItem({ track, onRemove }: { track: Track & { downloadedA
           {playing ? <Pause size={16} /> : <Play size={16} className="ml-0.5" />}
         </div>
       </button>
-      <button onClick={onRemove} className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-muted-foreground hover:text-red-400 transition-colors" title="Remove download">
+      <button onClick={onRemove} aria-label="Remove download" className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-muted-foreground hover:text-red-400 transition-colors" title="Remove download">
         <Trash2 size={14} />
       </button>
     </div>
