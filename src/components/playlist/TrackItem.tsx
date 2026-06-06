@@ -68,16 +68,21 @@ export function TrackItem({ track, index, isActive, isPlaying, onPlay }: Props) 
       {/* Favourite button */}
       <div
         onClick={handleFavourite}
+        role="button"
+        tabIndex={0}
+        aria-label={fav ? "Remove from favourites" : "Add to favourites"}
         className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${
           fav ? "text-red-500" : "text-muted-foreground hover:text-red-400"
         }`}
-        title={fav ? "Remove from favourites" : "Add to favourites"}
       >
         <Heart size={14} fill={fav ? "currentColor" : "none"} />
       </div>
       {/* Download button */}
       <div
         onClick={handleDownload}
+        role="button"
+        tabIndex={0}
+        aria-label={downloaded ? "Downloaded" : downloading ? "Downloading" : "Download for offline"}
         className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${
           downloaded
             ? "text-green-400"
@@ -85,7 +90,6 @@ export function TrackItem({ track, index, isActive, isPlaying, onPlay }: Props) 
             ? "text-primary animate-spin"
             : "text-muted-foreground hover:text-primary"
         }`}
-        title={downloaded ? "Downloaded" : downloading ? "Downloading..." : "Download for offline"}
       >
         {downloaded ? (
           <Check size={14} />
