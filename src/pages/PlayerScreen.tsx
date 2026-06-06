@@ -93,9 +93,9 @@ const PlayerScreen = () => {
           <>
             <HolographicArtwork track={player.currentTrack} isPlaying={player.isPlaying} />
             <div className="text-center mt-6 mb-4">
-              <h2 className="text-xl font-display font-bold tracking-wide text-foreground neon-text">
+              <h1 className="text-xl font-display font-bold tracking-wide text-foreground neon-text">
                 {player.currentTrack?.title || "No Track"}
-              </h2>
+              </h1>
               <p className="text-sm text-muted-foreground mt-1">{player.currentTrack?.artist || "—"}</p>
             </div>
             {hasLyrics ? (
