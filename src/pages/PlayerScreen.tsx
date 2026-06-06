@@ -9,6 +9,7 @@ import { LyricsView } from "@/components/player/LyricsView";
 import { InlineLyricsTicker } from "@/components/player/InlineLyricsTicker";
 import { DeviceSheet } from "@/components/player/DeviceSheet";
 import { useMusicPlayerContext } from "@/contexts/MusicPlayerContext";
+import { SEO } from "@/components/SEO";
 import { cn } from "@/lib/utils";
 
 const PlayerScreen = () => {
@@ -18,8 +19,17 @@ const PlayerScreen = () => {
 
   const hasLyrics = !!(player.currentTrack?.lyrics && player.currentTrack.lyrics.length);
 
+  const trackTitle = player.currentTrack
+    ? `${player.currentTrack.title} — ${player.currentTrack.artist}`
+    : "Now Playing";
+
   return (
     <div className="min-h-screen flex flex-col relative">
+      <SEO
+        title={`${trackTitle} | Sommyart Music Player`}
+        description={`Holographic full-screen player with lyrics and waveform visualizer. ${player.currentTrack ? `Now playing ${player.currentTrack.title} by ${player.currentTrack.artist}.` : "Stream exclusive neon tracks on Sommyart Music."}`}
+        path="/player"
+      />
       {/* Background glow */}
       <div className="absolute inset-0 bg-gradient-to-b from-neon-cyan/5 via-transparent to-neon-purple/5 pointer-events-none" />
 

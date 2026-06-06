@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Search, X, Star } from "lucide-react";
 import { TrackItem } from "@/components/playlist/TrackItem";
 import { HeroSection } from "@/components/hero/HeroSection";
 import { AdBanner } from "@/components/hero/AdBanner";
+import { SEO } from "@/components/SEO";
 
 import { useMusicPlayerContext } from "@/contexts/MusicPlayerContext";
 import { Track } from "@/lib/tracks";
@@ -43,8 +44,34 @@ const Index = () => {
     a.title.localeCompare(b.title)
   );
 
+  const jsonLd = useMemo(() => {
+    const recordings = mainTracks.slice(0, 10).map((t) => ({
+      "@context": "https://schema.org",
+      "@type": "MusicRecording",
+      name: t.title,
+      byArtist: { "@type": "MusicGroup", name: t.artist },
+      url: `https://sommyart-muziq.lovable.app/player`,
+    }));
+    return [
+      {
+        "@context": "https://schema.org",
+        "@type": "MusicGroup",
+        name: "Sommyart Music",
+        url: "https://sommyart-muziq.lovable.app/",
+        description: "Futuristic neon-blue music streaming featuring exclusive tracks and a Kosher Acapella section.",
+      },
+      ...recordings,
+    ];
+  }, [mainTracks]);
+
   return (
     <div className="min-h-screen pb-36">
+      <SEO
+        title="Sommyart Music — Stream Futuristic Neon Beats"
+        description="Discover and stream exclusive holographic tracks on Sommyart Music. New releases, Kosher Acapella, lyrics and offline playback in one neon-blue PWA."
+        path="/"
+        jsonLd={jsonLd}
+      />
       {/* Header */}
       <div className="relative px-6 pt-12 pb-4">
         <div className="absolute inset-0 bg-gradient-to-b from-neon-cyan/5 to-transparent" />

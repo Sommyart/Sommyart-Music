@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { extractCoverArt } from "@/lib/extractCoverArt";
 import { Track } from "@/lib/tracks";
 import { Progress } from "@/components/ui/progress";
+import { SEO } from "@/components/SEO";
 
 function formatBytes(bytes: number): string {
   if (!bytes || bytes < 1024) return `${bytes || 0} B`;
