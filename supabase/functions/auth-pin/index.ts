@@ -37,11 +37,19 @@ serve(async (req) => {
   try {
     const { action, username, pin, newPin, recoveryCode } = await req.json();
 
-    if (!username) {
+    if (!username || typeof username !== "string") {
       return new Response(JSON.stringify({ error: "Username is required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    const normalizedUsernameEarly = username.toLowerCase().trim();
+    if (!/^[a-z0-9_]{3,20}$/.test(normalizedUsernameEarly)) {
+      return new Response(
+        JSON.stringify({ error: "Username must be 3-20 characters: letters, numbers, or underscores" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     // For signup/login, PIN required. For reset_pin, recoveryCode + newPin required.
