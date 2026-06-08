@@ -76,7 +76,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     });
   }, [player.currentTrack?.id, player.isPlaying, player.playbackRate, audioEnabled, sync.device?.id]);
 
-  // Periodic position push (every 4s while playing & active)
+  // Periodic position push (every 2s while playing & active) for tighter remote sync
   useEffect(() => {
     if (!audioEnabled || !player.isPlaying || !sync.device) return;
     const id = window.setInterval(() => {
@@ -86,9 +86,28 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
         song_id: player.currentTrack?.id ?? null,
         active_device_id: sync.device!.id,
       });
-    }, 4000);
+    }, 2000);
     return () => window.clearInterval(id);
   }, [audioEnabled, player.isPlaying, player.currentTrack?.id, sync.device?.id]);
+
+  // Remote (non-active) interpolation: advance the displayed time locally
+  // between server pushes so the mobile mirrors the PC in real time.
+  useEffect(() => {
+    if (audioEnabled) return;
+    const pb = sync.playback;
+    if (!pb || !pb.is_playing) return;
+    const baselinePos = Number(pb.position_seconds) || 0;
+    const baselineMs = new Date(pb.updated_at).getTime();
+    const rate = Number(pb.playback_rate) || 1;
+    const tick = () => {
+      const elapsed = (Date.now() - baselineMs) / 1000;
+      player.setDisplayTime(Math.max(0, baselinePos + elapsed * rate));
+    };
+    tick();
+    const id = window.setInterval(tick, 250);
+    return () => window.clearInterval(id);
+  }, [audioEnabled, sync.playback?.version, sync.playback?.is_playing, sync.playback?.updated_at]);
+
 
   // ---- Wrap controls so a remote (non-active) device sends commands instead of playing locally ----
   const wrappedTogglePlay = useMemo(() => {
