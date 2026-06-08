@@ -76,7 +76,8 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     });
   }, [player.currentTrack?.id, player.isPlaying, player.playbackRate, audioEnabled, sync.device?.id]);
 
-  // Periodic position push (every 2s while playing & active) for tighter remote sync
+  // Periodic position push (every 1s while playing & active) as a baseline
+  // for the remote interpolator. Commands (play/pause/seek/track) push instantly.
   useEffect(() => {
     if (!audioEnabled || !player.isPlaying || !sync.device) return;
     const id = window.setInterval(() => {
@@ -86,26 +87,31 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
         song_id: player.currentTrack?.id ?? null,
         active_device_id: sync.device!.id,
       });
-    }, 2000);
+    }, 1000);
     return () => window.clearInterval(id);
   }, [audioEnabled, player.isPlaying, player.currentTrack?.id, sync.device?.id]);
 
   // Remote (non-active) interpolation: advance the displayed time locally
-  // between server pushes so the mobile mirrors the PC in real time.
+  // every animation frame so the mobile mirrors the PC in real time.
   useEffect(() => {
     if (audioEnabled) return;
     const pb = sync.playback;
-    if (!pb || !pb.is_playing) return;
+    if (!pb) return;
     const baselinePos = Number(pb.position_seconds) || 0;
     const baselineMs = new Date(pb.updated_at).getTime();
     const rate = Number(pb.playback_rate) || 1;
+    if (!pb.is_playing) {
+      player.setDisplayTime(Math.max(0, baselinePos));
+      return;
+    }
+    let raf = 0;
     const tick = () => {
       const elapsed = (Date.now() - baselineMs) / 1000;
       player.setDisplayTime(Math.max(0, baselinePos + elapsed * rate));
+      raf = requestAnimationFrame(tick);
     };
-    tick();
-    const id = window.setInterval(tick, 250);
-    return () => window.clearInterval(id);
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
   }, [audioEnabled, sync.playback?.version, sync.playback?.is_playing, sync.playback?.updated_at]);
 
 
