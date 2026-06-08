@@ -121,10 +121,23 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
 
   const wrappedSeek = useMemo(() => {
     return (time: number) => {
-      if (audioEnabled) return player.seek(time);
+      if (audioEnabled) {
+        player.seek(time);
+        // Immediately broadcast the new position so remote devices stay in lockstep
+        if (sync.device) {
+          sync.pushState({
+            position_seconds: time,
+            is_playing: player.isPlaying,
+            song_id: player.currentTrack?.id ?? null,
+            active_device_id: sync.device.id,
+          });
+        }
+        return;
+      }
       sync.pushState({ position_seconds: time });
     };
-  }, [audioEnabled, player.seek]);
+  }, [audioEnabled, player.seek, player.isPlaying, player.currentTrack?.id, sync.device?.id]);
+
 
   const wrappedNext = useMemo(() => {
     return () => {
