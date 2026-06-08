@@ -12,7 +12,7 @@ import { useMusicPlayerContext } from "@/contexts/MusicPlayerContext";
 import { useDailyNotification } from "@/hooks/useDailyNotification";
 import { useNewTrackNotifier } from "@/hooks/useNewTrackNotifier";
 import { useMediaSession } from "@/hooks/useMediaSession";
-import { TakeoverBanner } from "@/components/layout/TakeoverBanner";
+
 
 import { useNavigate } from "react-router-dom";
 import Index from "./pages/Index";
@@ -48,7 +48,6 @@ function AppShell() {
   });
   return (
     <>
-      <TakeoverBanner />
       <Routes>
 
         <Route path="/" element={<Index />} />
