@@ -163,6 +163,10 @@ export function useMusicPlayer(playlist: Track[], audioEnabled: boolean = true) 
     [],
   );
 
+  // Update only the displayed currentTime without touching the audio element.
+  // Used by remote (non-active) devices to interpolate playback position.
+  const setDisplayTime = useCallback((t: number) => setCurrentTime(t), []);
+
   return {
     playlist,
     currentTrack: enrichedTrack,
@@ -184,6 +188,7 @@ export function useMusicPlayer(playlist: Track[], audioEnabled: boolean = true) 
     playbackRate,
     setPlaybackRate,
     applyRemoteState,
+    setDisplayTime,
   };
 }
 
