@@ -189,9 +189,14 @@ export function useDeviceSync() {
   const pushState = useCallback(
     async (patch: Partial<Omit<PlaybackStateRow, "user_id" | "version" | "updated_at">>) => {
       if (!userId || !device) return;
+      const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const rawSongId = patch.song_id ?? playback?.song_id ?? null;
+      // playback_state.song_id is uuid — legacy/static tracks with short ids
+      // (e.g. "2", "k2") would 22P02. Drop them silently instead of crashing.
+      const song_id = rawSongId && UUID_RE.test(rawSongId) ? rawSongId : null;
       const next = {
         user_id: userId,
-        song_id: patch.song_id ?? playback?.song_id ?? null,
+        song_id,
         position_seconds: patch.position_seconds ?? playback?.position_seconds ?? 0,
         is_playing: patch.is_playing ?? playback?.is_playing ?? false,
         playback_rate: patch.playback_rate ?? playback?.playback_rate ?? 1,
@@ -204,7 +209,6 @@ export function useDeviceSync() {
       };
       const { error } = await supabase.from("playback_state").upsert(next, { onConflict: "user_id" });
       if (error) console.error("pushState error", error);
-
     },
     [userId, device, playback],
   );

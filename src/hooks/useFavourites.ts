@@ -1,40 +1,49 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
+/**
+ * Favourites hook. Uses cached session (getSession) instead of getUser() to
+ * avoid competing for the Supabase auth navigator-lock — concurrent getUser()
+ * calls from multiple hooks trigger "Lock stolen" unhandled rejections.
+ */
 export function useFavourites() {
   const [favouriteIds, setFavouriteIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const userIdRef = useRef<string | null>(null);
 
-  const fetchFavourites = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+  const loadFor = useCallback(async (uid: string | null) => {
+    userIdRef.current = uid;
+    if (!uid) {
       setFavouriteIds(new Set());
       setLoading(false);
       return;
     }
-
     const { data } = await supabase
       .from("favourites")
       .select("song_id")
-      .eq("user_id", user.id);
-
+      .eq("user_id", uid);
     setFavouriteIds(new Set((data || []).map((f) => f.song_id)));
     setLoading(false);
   }, []);
 
   useEffect(() => {
-    fetchFavourites();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
-      fetchFavourites();
+    let cancelled = false;
+    supabase.auth.getSession().then(({ data }) => {
+      if (cancelled) return;
+      loadFor(data.session?.user.id ?? null);
     });
-
-    return () => subscription.unsubscribe();
-  }, [fetchFavourites]);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_evt, session) => {
+      loadFor(session?.user.id ?? null);
+    });
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
+  }, [loadFor]);
 
   const toggleFavourite = useCallback(async (songId: string) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    const uid = userIdRef.current;
+    if (!uid) return;
 
     const isFav = favouriteIds.has(songId);
 
@@ -47,15 +56,9 @@ export function useFavourites() {
     });
 
     if (isFav) {
-      await supabase
-        .from("favourites")
-        .delete()
-        .eq("user_id", user.id)
-        .eq("song_id", songId);
+      await supabase.from("favourites").delete().eq("user_id", uid).eq("song_id", songId);
     } else {
-      await supabase
-        .from("favourites")
-        .insert({ user_id: user.id, song_id: songId });
+      await supabase.from("favourites").insert({ user_id: uid, song_id: songId });
     }
   }, [favouriteIds]);
 
