@@ -21,8 +21,10 @@ import PlaylistScreen from "./pages/PlaylistScreen";
 import DownloadsScreen from "./pages/DownloadsScreen";
 import AdminLyrics from "./pages/AdminLyrics";
 import NotFound from "./pages/NotFound";
+import OAuthConsent from "./pages/OAuthConsent";
 import InstallPrompt from "./components/InstallPrompt";
 import { AuthGate } from "./components/AuthGate";
+
 
 const queryClient = new QueryClient();
 
@@ -55,8 +57,10 @@ function AppShell() {
         <Route path="/playlist" element={<PlaylistScreen />} />
         <Route path="/downloads" element={<DownloadsScreen />} />
         <Route path="/admin/lyrics" element={<AdminLyrics />} />
+        <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
+
       <MiniPlayer track={currentTrack} isPlaying={isPlaying} onTogglePlay={togglePlay} onNext={handleNext} onPrev={handlePrev} />
       <BottomNav />
     </>
