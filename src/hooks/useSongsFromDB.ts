@@ -37,6 +37,9 @@ export function useSongsFromDB() {
           uploadedAt: s.uploaded_at,
           genre: s.genre || undefined,
           lyrics: Array.isArray(s.lyrics) ? s.lyrics : null,
+          albumId: s.album_id ?? null,
+          artistId: s.artist_id ?? null,
+          trackNumber: s.track_number ?? null,
         }));
         const seen = new Set<string>();
         const keyOf = (t: Track) =>

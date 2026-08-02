@@ -13,6 +13,9 @@ export interface Track {
   category?: string;
   genre?: string;
   lyrics?: LyricLine[] | null;
+  albumId?: string | null;
+  artistId?: string | null;
+  trackNumber?: number | null;
 }
 
 // Static fallback tracks — sorted alphabetically by title
