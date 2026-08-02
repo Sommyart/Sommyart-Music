@@ -1,8 +1,9 @@
-import { Home, ListMusic, Download, User } from "lucide-react";
+import { Home, ListMusic, Download, Disc3 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 const navItems = [
   { icon: Home, label: "Home", path: "/" },
+  { icon: Disc3, label: "Albums", path: "/albums" },
   { icon: ListMusic, label: "Playlist", path: "/playlist" },
   { icon: Download, label: "Downloads", path: "/downloads" },
 ];
@@ -23,7 +24,7 @@ export function BottomNav() {
             <button
               key={path}
               onClick={() => navigate(path)}
-              className={`flex flex-col items-center gap-1 px-4 py-2 transition-colors ${
+              className={`flex flex-col items-center gap-1 px-3 py-2 transition-colors ${
                 active ? "text-primary" : "text-muted-foreground"
               }`}
             >

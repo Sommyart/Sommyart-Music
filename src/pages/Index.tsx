@@ -3,6 +3,8 @@ import { Search, X, Star } from "lucide-react";
 import { TrackItem } from "@/components/playlist/TrackItem";
 import { HeroSection } from "@/components/hero/HeroSection";
 import { AdBanner } from "@/components/hero/AdBanner";
+import { AlbumShelf } from "@/components/album/AlbumShelf";
+import { ArtistShelf } from "@/components/album/ArtistShelf";
 import { SEO } from "@/components/SEO";
 
 import { useMusicPlayerContext } from "@/contexts/MusicPlayerContext";
@@ -100,6 +102,10 @@ const Index = () => {
           onPlay={handlePlayNewest}
         />
       )}
+
+      {/* Albums & artists */}
+      <AlbumShelf />
+      <ArtistShelf />
 
       {/* Divider */}
       <div className="px-6 py-2">

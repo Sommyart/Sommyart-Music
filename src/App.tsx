@@ -19,6 +19,9 @@ import Index from "./pages/Index";
 import PlayerScreen from "./pages/PlayerScreen";
 import PlaylistScreen from "./pages/PlaylistScreen";
 import DownloadsScreen from "./pages/DownloadsScreen";
+import AlbumsScreen from "./pages/AlbumsScreen";
+import AlbumDetail from "./pages/AlbumDetail";
+import ArtistDetail from "./pages/ArtistDetail";
 import AdminLyrics from "./pages/AdminLyrics";
 import NotFound from "./pages/NotFound";
 import OAuthConsent from "./pages/OAuthConsent";
@@ -56,6 +59,9 @@ function AppShell() {
         <Route path="/player" element={<PlayerScreen />} />
         <Route path="/playlist" element={<PlaylistScreen />} />
         <Route path="/downloads" element={<DownloadsScreen />} />
+        <Route path="/albums" element={<AlbumsScreen />} />
+        <Route path="/album/:id" element={<AlbumDetail />} />
+        <Route path="/artist/:id" element={<ArtistDetail />} />
         <Route path="/admin/lyrics" element={<AdminLyrics />} />
         <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
         <Route path="*" element={<NotFound />} />
