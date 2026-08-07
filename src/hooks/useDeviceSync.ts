@@ -26,7 +26,15 @@ export interface PlaybackStateRow {
   updated_by_device: string | null;
   version: number;
   updated_at: string;
+  // Session-wide state (queue + playback context + volume)
+  queue: string[];
+  context_type: string;
+  context_id: string | null;
+  context_track_ids: string[];
+  context_index: number;
+  volume: number;
 }
+
 
 
 function detectKind(): string {
@@ -203,10 +211,17 @@ export function useDeviceSync() {
         shuffle: patch.shuffle ?? playback?.shuffle ?? false,
         repeat_mode: patch.repeat_mode ?? playback?.repeat_mode ?? "off",
         active_device_id: patch.active_device_id ?? playback?.active_device_id ?? device.id,
+        queue: patch.queue ?? playback?.queue ?? [],
+        context_type: patch.context_type ?? playback?.context_type ?? "library",
+        context_id: patch.context_id ?? playback?.context_id ?? null,
+        context_track_ids: patch.context_track_ids ?? playback?.context_track_ids ?? [],
+        context_index: patch.context_index ?? playback?.context_index ?? 0,
+        volume: patch.volume ?? playback?.volume ?? 1,
         updated_by_device: device.id,
         version: (playback?.version ?? 0) + 1,
         updated_at: new Date().toISOString(),
       };
+
       const { error } = await supabase.from("playback_state").upsert(next, { onConflict: "user_id" });
       if (error) console.error("pushState error", error);
     },

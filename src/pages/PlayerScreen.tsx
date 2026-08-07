@@ -8,6 +8,7 @@ import { PlayerControls } from "@/components/player/PlayerControls";
 import { LyricsView } from "@/components/player/LyricsView";
 import { InlineLyricsTicker } from "@/components/player/InlineLyricsTicker";
 import { DeviceSheet } from "@/components/player/DeviceSheet";
+import { QueueSheet } from "@/components/player/QueueSheet";
 import { useMusicPlayerContext } from "@/contexts/MusicPlayerContext";
 import { SEO } from "@/components/SEO";
 import { cn } from "@/lib/utils";
@@ -41,6 +42,8 @@ const PlayerScreen = () => {
         <span className="text-xs font-display tracking-widest text-muted-foreground">
           {showLyrics ? "LYRICS" : "NOW PLAYING"}
         </span>
+        <div className="flex items-center gap-4">
+        <QueueSheet />
         <button
           onClick={() => hasLyrics && setShowLyrics((s) => !s)}
           disabled={!hasLyrics}
@@ -53,6 +56,7 @@ const PlayerScreen = () => {
         >
           <Mic2 size={22} />
         </button>
+        </div>
       </div>
 
       {/* Connect bar — output device + transfer */}

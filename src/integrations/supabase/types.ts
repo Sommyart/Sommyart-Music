@@ -185,9 +185,14 @@ export type Database = {
       playback_state: {
         Row: {
           active_device_id: string | null
+          context_id: string | null
+          context_index: number
+          context_track_ids: Json
+          context_type: string
           is_playing: boolean
           playback_rate: number
           position_seconds: number
+          queue: Json
           repeat_mode: string
           shuffle: boolean
           song_id: string | null
@@ -195,12 +200,18 @@ export type Database = {
           updated_by_device: string | null
           user_id: string
           version: number
+          volume: number
         }
         Insert: {
           active_device_id?: string | null
+          context_id?: string | null
+          context_index?: number
+          context_track_ids?: Json
+          context_type?: string
           is_playing?: boolean
           playback_rate?: number
           position_seconds?: number
+          queue?: Json
           repeat_mode?: string
           shuffle?: boolean
           song_id?: string | null
@@ -208,12 +219,18 @@ export type Database = {
           updated_by_device?: string | null
           user_id: string
           version?: number
+          volume?: number
         }
         Update: {
           active_device_id?: string | null
+          context_id?: string | null
+          context_index?: number
+          context_track_ids?: Json
+          context_type?: string
           is_playing?: boolean
           playback_rate?: number
           position_seconds?: number
+          queue?: Json
           repeat_mode?: string
           shuffle?: boolean
           song_id?: string | null
@@ -221,6 +238,7 @@ export type Database = {
           updated_by_device?: string | null
           user_id?: string
           version?: number
+          volume?: number
         }
         Relationships: [
           {

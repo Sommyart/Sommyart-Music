@@ -1,18 +1,19 @@
 import { createContext, useContext, ReactNode, useEffect, useMemo, useRef } from "react";
-import { useMusicPlayer } from "@/hooks/useMusicPlayer";
+import { usePlaybackEngine } from "@/hooks/usePlaybackEngine";
 import { useSongsFromDB } from "@/hooks/useSongsFromDB";
 import { useDeviceSync } from "@/hooks/useDeviceSync";
 import { Track } from "@/lib/tracks";
 
-type BasePlayer = ReturnType<typeof useMusicPlayer>;
+type BaseEngine = ReturnType<typeof usePlaybackEngine>;
 type Sync = ReturnType<typeof useDeviceSync>;
 
-type PlayerContextType = Omit<BasePlayer, "applyRemoteState"> & {
+type PlayerContextType = Omit<BaseEngine, "applyRemoteState"> & {
   newestTrack: ReturnType<typeof useSongsFromDB>["newestTrack"];
   newestTracks: Track[];
   songsLoading: boolean;
   kosherTracks: Track[];
   mainTracks: Track[];
+  allTracks: Track[];
   // Multi-device
   thisDevice: Sync["device"];
   devices: Sync["devices"];
@@ -29,12 +30,13 @@ const MusicPlayerContext = createContext<PlayerContextType | null>(null);
 export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   const { songs, allSongs, kosherTracks, loading, newestTrack, newestTracks } = useSongsFromDB();
   const sync = useDeviceSync();
-  // Auto-mirror mode: every signed-in device plays audio locally and stays
-  // in lockstep with playback_state. There is no single "active" device any
-  // more — all devices mirror each other (Spotify Group Session style).
-  const player = useMusicPlayer(allSongs, true);
 
-  // ---- Apply incoming remote playback state on EVERY device ----
+  // Only the device that currently owns the session renders audio. Playback is
+  // handed over explicitly (device takeover) so two devices never play at once.
+  const audioEnabled = sync.isThisDeviceActive;
+  const player = usePlaybackEngine(allSongs, audioEnabled);
+
+  // ---------------- Apply incoming remote playback state ----------------
   const lastAppliedVersion = useRef<number>(-1);
   const applyingRemoteRef = useRef<boolean>(false);
   useEffect(() => {
@@ -42,11 +44,9 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     if (!pb || !sync.device) return;
     if (pb.version <= lastAppliedVersion.current) return;
     lastAppliedVersion.current = pb.version;
-    // Skip echoes of our own writes
-    if (pb.updated_by_device === sync.device.id) return;
+    if (pb.updated_by_device === sync.device.id) return; // our own echo
 
-    // Compensate for network latency: advance position by elapsed time
-    // since the leader stamped this update, so audio lines up on resume.
+    // Latency compensation so a takeover resumes at the right position.
     const elapsed = pb.is_playing
       ? Math.max(0, (Date.now() - new Date(pb.updated_at).getTime()) / 1000)
       : 0;
@@ -60,31 +60,39 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       playbackRate: rate,
       shuffle: pb.shuffle,
       repeat: pb.repeat_mode,
+      volume: typeof pb.volume === "number" ? Number(pb.volume) : undefined,
+      queueIds: Array.isArray(pb.queue) ? (pb.queue as string[]) : undefined,
+      contextType: (pb.context_type as never) ?? undefined,
+      contextId: pb.context_id ?? null,
+      contextTrackIds: Array.isArray(pb.context_track_ids)
+        ? (pb.context_track_ids as string[])
+        : undefined,
+      contextIndex: pb.context_index ?? undefined,
     });
-    // Release the suppression on next tick so our reactive push effects
-    // see the updated player state without triggering an echo write.
     queueMicrotask(() => {
       applyingRemoteRef.current = false;
     });
   }, [sync.playback?.version, sync.device?.id]);
 
-  // ---- Push state changes from this device whenever the local user acts ----
+  // ---------------- Push meaningful local changes ----------------
+  // Position is NOT written on every tick — only on transport/queue changes
+  // plus a slow heartbeat while this device owns playback.
   const lastPushKeyRef = useRef<string>("");
   useEffect(() => {
     if (!sync.device) return;
     if (applyingRemoteRef.current) return;
     const songId = player.currentTrack?.id ?? null;
-    const pb = sync.playback;
-    // No change vs. what's already in the shared state → don't push
-    if (
-      pb &&
-      pb.song_id === songId &&
-      pb.is_playing === player.isPlaying &&
-      Number(pb.playback_rate) === player.playbackRate
-    ) {
-      return;
-    }
-    const key = `${songId}|${player.isPlaying}|${player.playbackRate}`;
+    const key = [
+      songId,
+      player.isPlaying,
+      player.playbackRate,
+      player.shuffle,
+      player.repeat,
+      player.contextType,
+      player.contextId,
+      player.contextIndex,
+      player.queue.map((t) => t.id).join(","),
+    ].join("|");
     if (lastPushKeyRef.current === key) return;
     lastPushKeyRef.current = key;
     sync.pushState({
@@ -92,36 +100,62 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       is_playing: player.isPlaying,
       position_seconds: player.currentTime,
       playback_rate: player.playbackRate,
-      active_device_id: sync.device.id,
+      shuffle: player.shuffle,
+      repeat_mode: player.repeat,
+      volume: player.volume,
+      queue: player.queue.map((t) => t.id),
+      context_type: player.contextType,
+      context_id: player.contextId,
+      context_track_ids: player.contextTracks.map((t) => t.id),
+      context_index: player.contextIndex,
+      active_device_id: sync.playback?.active_device_id ?? sync.device.id,
     });
-  }, [player.currentTrack?.id, player.isPlaying, player.playbackRate, sync.device?.id]);
+  }, [
+    player.currentTrack?.id,
+    player.isPlaying,
+    player.playbackRate,
+    player.shuffle,
+    player.repeat,
+    player.contextType,
+    player.contextId,
+    player.contextIndex,
+    player.queue,
+    sync.device?.id,
+  ]);
 
-  // Drift-correction heartbeat: only the device that last issued a command
-  // (the leader) pushes a periodic position so the others can re-align if
-  // they fell behind. Avoids write storms from every device at once.
+  // Slow position heartbeat (10s) — enough for takeover accuracy without
+  // hammering the database on slow mobile networks.
   useEffect(() => {
-    if (!sync.device || !player.isPlaying) return;
-    const isLeader = sync.playback?.updated_by_device === sync.device.id;
-    if (!isLeader) return;
+    if (!sync.device || !player.isPlaying || !audioEnabled) return;
     const id = window.setInterval(() => {
       sync.pushState({
         position_seconds: player.currentTime,
         is_playing: true,
         song_id: player.currentTrack?.id ?? null,
-        active_device_id: sync.device!.id,
       });
-    }, 2000);
+    }, 10_000);
     return () => window.clearInterval(id);
-  }, [player.isPlaying, player.currentTrack?.id, sync.device?.id, sync.playback?.updated_by_device]);
+  }, [player.isPlaying, player.currentTrack?.id, sync.device?.id, audioEnabled]);
 
-  // ---- Wrapped controls: act locally AND broadcast so every device mirrors ----
-  const wrappedTogglePlay = useMemo(() => {
-    return () => {
-      player.togglePlay();
-      // Pushed reactively by the effect above
+  // Remote monitor devices interpolate position locally so the progress bar
+  // moves smoothly without extra network traffic.
+  useEffect(() => {
+    if (audioEnabled) return;
+    const pb = sync.playback;
+    if (!pb?.is_playing) return;
+    let raf = 0;
+    const base = Number(pb.position_seconds) || 0;
+    const stamp = new Date(pb.updated_at).getTime();
+    const rate = Number(pb.playback_rate) || 1;
+    const tick = () => {
+      player.setDisplayTime(base + ((Date.now() - stamp) / 1000) * rate);
+      raf = requestAnimationFrame(tick);
     };
-  }, [player.togglePlay]);
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [audioEnabled, sync.playback?.version, sync.playback?.is_playing]);
 
+  // ---------------- Wrapped controls (immediate sync on user intent) ----------------
   const wrappedSeek = useMemo(() => {
     return (time: number) => {
       player.seek(time);
@@ -130,41 +164,12 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
           position_seconds: time,
           is_playing: player.isPlaying,
           song_id: player.currentTrack?.id ?? null,
-          active_device_id: sync.device.id,
         });
       }
     };
   }, [player.seek, player.isPlaying, player.currentTrack?.id, sync.device?.id]);
 
-  const wrappedNext = useMemo(() => player.handleNext, [player.handleNext]);
-  const wrappedPrev = useMemo(() => player.handlePrev, [player.handlePrev]);
-  const wrappedPlayTrack = useMemo(() => player.playTrack, [player.playTrack]);
-
-  const wrappedSetRate = useMemo(() => {
-    return (rate: number) => {
-      player.setPlaybackRate(rate);
-      sync.pushState({ playback_rate: rate });
-    };
-  }, [player.setPlaybackRate]);
-
-  const wrappedSetShuffle = useMemo(() => {
-    return () => {
-      const next = !player.shuffle;
-      player.setShuffleValue(next);
-      sync.pushState({ shuffle: next });
-    };
-  }, [player.shuffle, player.setShuffleValue]);
-
-  const wrappedSetRepeat = useMemo(() => {
-    return () => {
-      const next: "off" | "all" | "one" =
-        player.repeat === "off" ? "all" : player.repeat === "all" ? "one" : "off";
-      player.setRepeatValue(next);
-      sync.pushState({ repeat_mode: next });
-    };
-  }, [player.repeat, player.setRepeatValue]);
-
-  // "Take over" now simply means: become the leader for heartbeat purposes.
+  /** Transfer playback here, resuming at the shared position. */
   const takeOver = useMemo(() => {
     return () => {
       if (!sync.device) return;
@@ -177,38 +182,33 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     return sync.devices.find((d) => d.id === sync.playback!.active_device_id) ?? null;
   }, [sync.devices, sync.playback?.active_device_id, sync.device]);
 
-  // Recently-played logging — only the leader logs to avoid duplicate rows.
+  // Recently-played logging — only the owning device logs.
   const loggedRef = useRef<string>("");
   useEffect(() => {
-    if (!sync.userId || !player.currentTrack?.id || !player.isPlaying) return;
-    const isLeader = !sync.playback?.updated_by_device || sync.playback?.updated_by_device === sync.device?.id;
-    if (!isLeader) return;
+    if (!sync.userId || !player.currentTrack?.id || !player.isPlaying || !audioEnabled) return;
     const key = `${sync.userId}|${player.currentTrack.id}`;
     if (loggedRef.current === key) return;
     loggedRef.current = key;
     import("@/integrations/supabase/client").then(({ supabase }) => {
-      supabase.from("recently_played").insert({ user_id: sync.userId!, song_id: player.currentTrack!.id }).then(() => {});
+      supabase
+        .from("recently_played")
+        .insert({ user_id: sync.userId!, song_id: player.currentTrack!.id })
+        .then(() => {});
     });
-  }, [sync.userId, player.currentTrack?.id, player.isPlaying, sync.playback?.updated_by_device, sync.device?.id]);
+  }, [sync.userId, player.currentTrack?.id, player.isPlaying, audioEnabled]);
 
   const value: PlayerContextType = {
     ...player,
-    togglePlay: wrappedTogglePlay,
     seek: wrappedSeek,
-    handleNext: wrappedNext,
-    handlePrev: wrappedPrev,
-    playTrack: wrappedPlayTrack,
-    setPlaybackRate: wrappedSetRate,
-    setShuffle: wrappedSetShuffle,
-    setRepeat: wrappedSetRepeat,
     newestTrack,
     newestTracks,
     songsLoading: loading,
     kosherTracks,
     mainTracks: songs,
+    allTracks: allSongs,
     thisDevice: sync.device,
     devices: sync.devices,
-    isThisDeviceActive: true, // every device is active in auto-mirror mode
+    isThisDeviceActive: sync.isThisDeviceActive,
     activeDevice,
     transferTo: sync.transferTo,
     renameDevice: sync.renameDevice,

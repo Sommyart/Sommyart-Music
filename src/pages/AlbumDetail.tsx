@@ -1,6 +1,9 @@
-import { useMemo } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Play, Disc3 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { ArrowLeft, Play, Disc3, Share2, Lock } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { setPendingDestination } from "@/lib/pendingDestination";
+import { toast } from "@/hooks/use-toast";
 import { useAlbum } from "@/hooks/useAlbums";
 import { useMusicPlayerContext } from "@/contexts/MusicPlayerContext";
 import { TrackItem } from "@/components/playlist/TrackItem";
@@ -9,16 +12,55 @@ import { SEO } from "@/components/SEO";
 const AlbumDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
   const { album, tracks, artist, loading } = useAlbum(id);
-  const { playlist, currentTrackIndex, isPlaying, playTrack } = useMusicPlayerContext();
+  const { currentTrack, isPlaying, playContext, contextId } = useMusicPlayerContext();
+  const [authed, setAuthed] = useState<boolean | null>(null);
+  const [started, setStarted] = useState(false);
+  const autoplay = params.get("autoplay") === "1";
 
-  const indexOf = (trackId: string) => playlist.findIndex((t) => t.id === trackId);
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setAuthed(!!data.session));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => setAuthed(!!session));
+    return () => sub.subscription.unsubscribe();
+  }, []);
 
-  const handlePlayAlbum = () => {
-    const first = tracks[0];
-    if (!first) return;
-    const idx = indexOf(first.id);
-    if (idx >= 0) playTrack(idx);
+  useEffect(() => {
+    if (authed === false && id) setPendingDestination(`/album/${id}?autoplay=1`);
+  }, [authed, id]);
+
+  // Album playback is isolated: ONLY this album's tracks form the context.
+  const playAlbumFrom = (startIndex: number) => {
+    if (!tracks.length) return;
+    playContext({ type: "album", id: album?.id ?? id ?? null, tracks, startIndex });
+  };
+
+  const handlePlayAlbum = () => playAlbumFrom(0);
+
+  useEffect(() => {
+    if (!autoplay || started || authed !== true || !tracks.length) return;
+    setStarted(true);
+    playAlbumFrom(0);
+    navigate("/player", { replace: true });
+  }, [autoplay, started, authed, tracks.length]);
+
+  const shareUrl = `${window.location.origin}/album/${id}`;
+  const handleShare = async () => {
+    if (!album) return;
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: `${album.title} — ${album.artistName}`,
+          text: `Listen to the album ${album.title} by ${album.artistName} on Sommyart Music`,
+          url: shareUrl,
+        });
+      } else {
+        await navigator.clipboard.writeText(shareUrl);
+        toast({ title: "Link copied", description: shareUrl });
+      }
+    } catch {
+      /* cancelled */
+    }
   };
 
   const jsonLd = useMemo(() => {
@@ -62,6 +104,8 @@ const AlbumDetail = () => {
           `Stream ${album.title} by ${album.artistName} on Sommyart Music.`
         }
         path={`/album/${album.id}`}
+        image={album.coverUrl}
+        type="music.album"
         jsonLd={jsonLd}
       />
 
@@ -102,12 +146,33 @@ const AlbumDetail = () => {
           </div>
         </div>
 
-        <button
-          onClick={handlePlayAlbum}
-          className="mt-5 h-11 px-6 rounded-full bg-primary text-primary-foreground font-display tracking-wider text-sm flex items-center gap-2 neon-glow"
-        >
-          <Play size={16} /> PLAY ALBUM
-        </button>
+        <div className="mt-5 flex items-center gap-2">
+          <button
+            onClick={handlePlayAlbum}
+            className="h-11 px-6 rounded-full bg-primary text-primary-foreground font-display tracking-wider text-sm flex items-center gap-2 neon-glow"
+          >
+            <Play size={16} /> PLAY ALBUM
+          </button>
+          <button
+            onClick={handleShare}
+            aria-label="Share album"
+            className="h-11 w-11 rounded-full border border-border/50 flex items-center justify-center text-muted-foreground hover:text-primary"
+          >
+            <Share2 size={16} />
+          </button>
+        </div>
+
+        {authed === false && (
+          <div className="mt-4 glass rounded-2xl p-4 text-center space-y-1">
+            <Lock size={18} className="mx-auto text-primary" />
+            <p className="text-sm text-foreground">
+              Sign in to Sommyart Music to listen to this album.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              After signing up you'll return here and Track 1 starts automatically.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* About the artist */}
@@ -132,8 +197,9 @@ const AlbumDetail = () => {
           TRACKLIST
         </h2>
         <div className="space-y-1">
-          {tracks.map((track) => {
-            const idx = indexOf(track.id);
+          {tracks.map((track, position) => {
+            const active =
+              currentTrack?.id === track.id && contextId === (album?.id ?? id ?? null);
             return (
               <div key={track.id} className="flex items-center gap-1">
                 <span className="w-6 text-center text-xs text-muted-foreground font-display">
@@ -142,10 +208,10 @@ const AlbumDetail = () => {
                 <div className="flex-1 min-w-0">
                   <TrackItem
                     track={track}
-                    index={idx}
-                    isActive={currentTrackIndex === idx}
-                    isPlaying={currentTrackIndex === idx && isPlaying}
-                    onPlay={() => idx >= 0 && playTrack(idx)}
+                    index={position}
+                    isActive={active}
+                    isPlaying={active && isPlaying}
+                    onPlay={() => playAlbumFrom(position)}
                   />
                 </div>
               </div>
