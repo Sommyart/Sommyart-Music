@@ -10,16 +10,14 @@ const ArtistDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { artist, albums, tracks, loading } = useArtist(id);
-  const { playlist, currentTrackIndex, isPlaying, playTrack } = useMusicPlayerContext();
+  const { currentTrack, isPlaying, playContext, contextId } = useMusicPlayerContext();
 
-  const indexOf = (trackId: string) => playlist.findIndex((t) => t.id === trackId);
-
-  const handlePlayAll = () => {
-    const first = tracks[0];
-    if (!first) return;
-    const idx = indexOf(first.id);
-    if (idx >= 0) playTrack(idx);
+  const playFrom = (startIndex: number) => {
+    if (!tracks.length) return;
+    playContext({ type: "artist", id: id ?? null, tracks, startIndex });
   };
+
+  const handlePlayAll = () => playFrom(0);
 
   const jsonLd = useMemo(() => {
     if (!artist) return undefined;
@@ -147,16 +145,16 @@ const ArtistDetail = () => {
           SONGS ({tracks.length})
         </h2>
         <div className="space-y-1">
-          {tracks.map((track) => {
-            const idx = indexOf(track.id);
+          {tracks.map((track, position) => {
+            const active = currentTrack?.id === track.id && contextId === (id ?? null);
             return (
               <TrackItem
                 key={track.id}
                 track={track}
-                index={idx}
-                isActive={currentTrackIndex === idx}
-                isPlaying={currentTrackIndex === idx && isPlaying}
-                onPlay={() => idx >= 0 && playTrack(idx)}
+                index={position}
+                isActive={active}
+                isPlaying={active && isPlaying}
+                onPlay={() => playFrom(position)}
               />
             );
           })}
