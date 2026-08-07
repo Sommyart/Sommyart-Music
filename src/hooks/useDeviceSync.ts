@@ -26,7 +26,15 @@ export interface PlaybackStateRow {
   updated_by_device: string | null;
   version: number;
   updated_at: string;
+  // Session-wide state (queue + playback context + volume)
+  queue: string[];
+  context_type: string;
+  context_id: string | null;
+  context_track_ids: string[];
+  context_index: number;
+  volume: number;
 }
+
 
 
 function detectKind(): string {
