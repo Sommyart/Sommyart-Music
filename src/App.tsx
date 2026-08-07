@@ -27,6 +27,8 @@ import NotFound from "./pages/NotFound";
 import OAuthConsent from "./pages/OAuthConsent";
 import InstallPrompt from "./components/InstallPrompt";
 import { AuthGate } from "./components/AuthGate";
+import SongDetail from "./pages/SongDetail";
+import { PendingDestinationHandler } from "./components/PendingDestinationHandler";
 
 
 const queryClient = new QueryClient();
@@ -61,12 +63,14 @@ function AppShell() {
         <Route path="/downloads" element={<DownloadsScreen />} />
         <Route path="/albums" element={<AlbumsScreen />} />
         <Route path="/album/:id" element={<AlbumDetail />} />
+        <Route path="/song/:id" element={<SongDetail />} />
         <Route path="/artist/:id" element={<ArtistDetail />} />
         <Route path="/admin/lyrics" element={<AdminLyrics />} />
         <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
 
+      <PendingDestinationHandler />
       <MiniPlayer track={currentTrack} isPlaying={isPlaying} onTogglePlay={togglePlay} onNext={handleNext} onPrev={handlePrev} />
       <BottomNav />
     </>
