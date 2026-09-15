@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Track } from "@/lib/tracks";
 import { extractCoverArt } from "@/lib/extractCoverArt";
+import { cachedPlayableUrl, resolvePlayableUrl } from "@/lib/offlineAudio";
+
 import {
   buildShuffleOrder,
   HistoryEntry,
@@ -222,38 +224,62 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
   }, []);
 
   // ---------- Load / play the current track ----------
+  // Downloaded tracks resolve to a local blob URL first, so playback works
+  // with no network and starts instantly.
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio || !rawCurrent) return;
-    const url = rawCurrent.audioUrl;
-    if (audio.src !== url && !audio.src.endsWith(encodeURI(url))) {
-      audio.src = url;
-      audio.load();
-      const seekTo = pendingSeekRef.current;
-      if (seekTo != null) {
-        const apply = () => {
-          try {
-            audio.currentTime = seekTo;
-          } catch {
-            /* noop */
-          }
-          pendingSeekRef.current = null;
-          audio.removeEventListener("loadedmetadata", apply);
-        };
-        audio.addEventListener("loadedmetadata", apply);
+    let cancelled = false;
+    const remoteUrl = rawCurrent.audioUrl;
+    const applySource = (url: string) => {
+      if (cancelled || !audio) return;
+      if (audio.src !== url) {
+        audio.src = url;
+        audio.load();
+        const seekTo = pendingSeekRef.current;
+        if (seekTo != null) {
+          const apply = () => {
+            try {
+              audio.currentTime = seekTo;
+            } catch {
+              /* noop */
+            }
+            pendingSeekRef.current = null;
+            audio.removeEventListener("loadedmetadata", apply);
+          };
+          audio.addEventListener("loadedmetadata", apply);
+        }
       }
-    }
-    audio.playbackRate = playbackRate;
-    audio.volume = volume;
-    if (isPlaying && audioEnabled) {
-      errorSkipsRef.current = 0;
-      audio.play().catch(() => {
-        /* autoplay blocked — user gesture required */
+      audio.playbackRate = playbackRate;
+      audio.volume = volume;
+      if (isPlaying && audioEnabled) {
+        errorSkipsRef.current = 0;
+        audio.play().catch(() => {
+          /* autoplay blocked — user gesture required */
+        });
+      } else if (!isPlaying) {
+        audio.pause();
+      }
+    };
+
+    const known = cachedPlayableUrl(remoteUrl);
+    if (known) {
+      applySource(known);
+    } else {
+      applySource(remoteUrl);
+      resolvePlayableUrl(remoteUrl).then((resolved) => {
+        // Swap in the offline copy only if we are still on the same track and
+        // playback has not begun from the network yet.
+        if (cancelled || resolved === remoteUrl) return;
+        if (!audioRef.current || audioRef.current.currentTime > 0) return;
+        applySource(resolved);
       });
-    } else if (!isPlaying) {
-      audio.pause();
     }
+    return () => {
+      cancelled = true;
+    };
   }, [rawCurrent?.id, rawCurrent?.audioUrl, isPlaying, audioEnabled]);
+
 
   useEffect(() => {
     const audio = audioRef.current;
