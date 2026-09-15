@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Track } from "@/lib/tracks";
+import { releasePlayableUrl, resolvePlayableUrl } from "@/lib/offlineAudio";
+
 
 const CACHE_NAME = "sommyart-offline-music-v1";
 const DB_NAME = "sommyart-downloads";
@@ -171,7 +173,10 @@ export function useOfflineDownloads() {
         try { await cacheAudio(track.coverUrl); } catch { /* optional */ }
       }
       await saveTrackMeta({ ...track, downloadedAt: new Date().toISOString() });
+      // Warm the local playable copy so offline playback starts instantly.
+      await resolvePlayableUrl(track.audioUrl);
       await refresh();
+
     } catch (err) {
       console.error("Download failed:", err);
     } finally {
@@ -190,6 +195,7 @@ export function useOfflineDownloads() {
 
   const removeDownload = useCallback(async (track: Track) => {
     try {
+      releasePlayableUrl(track.audioUrl);
       await removeCachedAudio(track.audioUrl);
       await removeTrackMeta(track.id);
       await refresh();
@@ -197,6 +203,7 @@ export function useOfflineDownloads() {
       console.error("Remove failed:", err);
     }
   }, [refresh]);
+
 
   const isDownloaded = useCallback((id: string) => downloadedIds.has(id), [downloadedIds]);
   const isDownloading = useCallback((id: string) => downloadingIds.has(id), [downloadingIds]);
