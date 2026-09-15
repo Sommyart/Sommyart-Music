@@ -173,7 +173,10 @@ export function useOfflineDownloads() {
         try { await cacheAudio(track.coverUrl); } catch { /* optional */ }
       }
       await saveTrackMeta({ ...track, downloadedAt: new Date().toISOString() });
+      // Warm the local playable copy so offline playback starts instantly.
+      await resolvePlayableUrl(track.audioUrl);
       await refresh();
+
     } catch (err) {
       console.error("Download failed:", err);
     } finally {
