@@ -1,0 +1,18 @@
+# Sommyart Music
+
+> Futuristic neon-blue streaming app with a holographic player UI. Stream or download exclusive tracks online or offline.
+
+Sommyart Music is a mobile-first Progressive Web App for streaming and downloading curated tracks. It features a holographic player, offline playback, favourites, and a Kosher Acapella section.
+
+## Pages
+
+- [Home](/): Browse the music library, newest releases, and the hero spotlight.
+- [Albums](/albums): Full albums, including "HASHEM YOU ARE SUFFICIENT" by Sommyart Gospel Band.
+- [Player](/player): Full-screen holographic player with lyrics and waveform visualizer.
+- [Playlist](/playlist): Full song list with sorting, search, and genre filters.
+- [Downloads](/downloads): Manage tracks saved for offline playback.
+
+## Artists
+
+- Sommyart — Nigerian singer, songwriter and producer spanning Afrobeat, gospel, R&B and Hebrew worship.
+- Sommyart Gospel Band — a group of Nigerian singers who sing the praises of HASHEM.
