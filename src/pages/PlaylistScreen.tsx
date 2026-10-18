@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Search, X, Star, Music2, ChevronDown } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Search, X, Star, Music2, ChevronDown, Play, Shuffle, Repeat, Repeat1 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { TrackItem } from "@/components/playlist/TrackItem";
 import { DownloadCollectionButton } from "@/components/DownloadCollectionButton";
@@ -7,21 +7,60 @@ import { useMusicPlayerContext } from "@/contexts/MusicPlayerContext";
 import { SEO } from "@/components/SEO";
 import { Track } from "@/lib/tracks";
 
+type SortMode = "genre" | "az" | "newest" | "oldest";
+
+const SORTS: { id: SortMode; label: string }[] = [
+  { id: "az", label: "A–Z" },
+  { id: "newest", label: "Newest" },
+  { id: "oldest", label: "Oldest" },
+  { id: "genre", label: "By genre" },
+];
+
+const SORT_KEY = "sommyart_playlist_sort";
+
+function loadSort(): SortMode {
+  try {
+    const v = localStorage.getItem(SORT_KEY) as SortMode | null;
+    return v && SORTS.some((s) => s.id === v) ? v : "az";
+  } catch {
+    return "az";
+  }
+}
+
+const byTitle = (a: Track, b: Track) => a.title.localeCompare(b.title, undefined, { sensitivity: "base" });
+const time = (t: Track) => (t.uploadedAt ? new Date(t.uploadedAt).getTime() || 0 : 0);
+
+/**
+ * Sort a list the way the user chose. Songs bundled with the app have no
+ * upload date; they count as the oldest (they were the original catalogue).
+ * Ties fall back to A–Z so the order is always stable and predictable.
+ */
+function sortTracks(list: Track[], mode: SortMode): Track[] {
+  const c = [...list];
+  if (mode === "newest") return c.sort((a, b) => time(b) - time(a) || byTitle(a, b));
+  if (mode === "oldest") return c.sort((a, b) => time(a) - time(b) || byTitle(a, b));
+  return c.sort(byTitle);
+}
+
 const PlaylistScreen = () => {
-  const { playlist, currentTrackIndex, isPlaying, playTrack, kosherTracks, mainTracks } = useMusicPlayerContext();
+  const {
+    playlist, currentTrack, isPlaying, playContext, kosherTracks, mainTracks,
+    shuffle, repeat, setShuffle, setRepeat, contextId,
+  } = useMusicPlayerContext();
   const [searchQuery, setSearchQuery] = useState("");
+  const [sort, setSort] = useState<SortMode>(loadSort);
+
+  useEffect(() => {
+    try { localStorage.setItem(SORT_KEY, sort); } catch { /* noop */ }
+  }, [sort]);
 
   const q = searchQuery.toLowerCase();
+  const matches = (t: Track) => t.title.toLowerCase().includes(q) || t.artist.toLowerCase().includes(q);
 
-  const filteredKosher = kosherTracks.filter(
-    (t) => t.title.toLowerCase().includes(q) || t.artist.toLowerCase().includes(q)
-  );
+  const filteredKosher = useMemo(() => sortTracks(kosherTracks.filter(matches), sort === "genre" ? "az" : sort), [kosherTracks, q, sort]);
+  const filteredMain = useMemo(() => mainTracks.filter(matches), [mainTracks, q]);
 
-  const filteredMain = mainTracks.filter(
-    (t) => t.title.toLowerCase().includes(q) || t.artist.toLowerCase().includes(q)
-  );
-
-  // Group main tracks by genre, alphabetized within each group, genres sorted alphabetically
+  // Genre view: genres A–Z, songs A–Z inside each genre.
   const tracksByGenre = useMemo(() => {
     const groups = new Map<string, Track[]>();
     for (const t of filteredMain) {
@@ -30,12 +69,45 @@ const PlaylistScreen = () => {
       groups.get(g)!.push(t);
     }
     return Array.from(groups.entries())
-      .map(([genre, list]) => ({
-        genre,
-        tracks: [...list].sort((a, b) => a.title.localeCompare(b.title)),
-      }))
+      .map(([genre, list]) => ({ genre, tracks: [...list].sort(byTitle) }))
       .sort((a, b) => a.genre.localeCompare(b.genre));
   }, [filteredMain]);
+
+  // The exact order on screen. Playback follows this list strictly, song after song.
+  const ordered = useMemo(
+    () => (sort === "genre" ? tracksByGenre.flatMap((g) => g.tracks) : sortTracks(filteredMain, sort)),
+    [sort, tracksByGenre, filteredMain],
+  );
+
+  const contextKey = `sort:${sort}${q ? `:q:${q}` : ""}`;
+
+  const playFrom = (list: Track[], track: Track, id: string) => {
+    const startIndex = Math.max(0, list.findIndex((t) => t.id === track.id));
+    playContext({ type: "playlist", id, tracks: list, startIndex });
+  };
+
+  // Play the list from the top in the chosen order (or from a random song when shuffle is on).
+  const playAll = () => {
+    if (!ordered.length) return;
+    const start = shuffle ? Math.floor(Math.random() * ordered.length) : 0;
+    playContext({ type: "playlist", id: contextKey, tracks: ordered, startIndex: start });
+  };
+
+  const row = (track: Track, list: Track[], id: string, index: number) => {
+    const active = currentTrack?.id === track.id;
+    return (
+      <TrackItem
+        key={track.id}
+        track={track}
+        index={index}
+        isActive={active}
+        isPlaying={active && isPlaying}
+        onPlay={() => playFrom(list, track, id)}
+      />
+    );
+  };
+
+  const repeatLabel = repeat === "one" ? "Repeat one" : repeat === "all" ? "Repeat all" : "Repeat off";
 
   return (
     <div className="min-h-screen pb-36">
@@ -44,12 +116,64 @@ const PlaylistScreen = () => {
         description="Browse the full Sommyart Music library by genre, search by title or artist, and explore the Kosher Acapella section. Holographic streaming, made simple."
         path="/playlist"
       />
-      <div className="px-6 pt-12 pb-4 flex items-end justify-between gap-4">
+      <div className="px-6 pt-12 pb-3 flex items-end justify-between gap-4">
         <div>
           <h1 className="text-xl font-display font-bold tracking-wider text-foreground neon-text">Playlist</h1>
           <p className="text-xs text-muted-foreground mt-1">{playlist.length} tracks</p>
         </div>
         <DownloadCollectionButton tracks={playlist} label="your playlist" size={40} />
+      </div>
+
+      {/* Play controls: play in order, shuffle, repeat (off → all → one) */}
+      <div className="px-6 pb-4 flex items-center gap-3">
+        <button
+          onClick={playAll}
+          className="h-11 px-5 rounded-full bg-primary text-primary-foreground font-display tracking-wider text-sm flex items-center gap-2 neon-glow"
+        >
+          <Play size={16} fill="currentColor" /> PLAY
+        </button>
+        <button
+          onClick={setShuffle}
+          aria-label={shuffle ? "Shuffle on" : "Shuffle off"}
+          aria-pressed={shuffle}
+          title={shuffle ? "Shuffle on" : "Shuffle off"}
+          className={`h-11 w-11 rounded-full border flex items-center justify-center transition-colors ${
+            shuffle ? "border-primary text-primary bg-primary/10" : "border-border/50 text-muted-foreground"
+          }`}
+        >
+          <Shuffle size={18} />
+        </button>
+        <button
+          onClick={setRepeat}
+          aria-label={repeatLabel}
+          title={repeatLabel}
+          className={`h-11 w-11 rounded-full border flex items-center justify-center transition-colors ${
+            repeat !== "off" ? "border-primary text-primary bg-primary/10" : "border-border/50 text-muted-foreground"
+          }`}
+        >
+          {repeat === "one" ? <Repeat1 size={18} /> : <Repeat size={18} />}
+        </button>
+        <span className="text-[11px] text-muted-foreground leading-tight">
+          {shuffle ? "Shuffle" : "In order"}
+          <br />
+          {repeatLabel}
+        </span>
+      </div>
+
+      {/* Sort */}
+      <div className="px-4 mb-3 flex gap-2 overflow-x-auto no-scrollbar">
+        {SORTS.map((s) => (
+          <button
+            key={s.id}
+            onClick={() => setSort(s.id)}
+            aria-pressed={sort === s.id}
+            className={`h-8 px-4 rounded-full text-xs font-medium whitespace-nowrap border transition-colors ${
+              sort === s.id ? "bg-primary text-primary-foreground border-primary" : "border-border/50 text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {s.label}
+          </button>
+        ))}
       </div>
 
       {/* Search Bar */}
@@ -80,69 +204,50 @@ const PlaylistScreen = () => {
           <Collapsible defaultOpen={!!searchQuery}>
             <CollapsibleTrigger className="flex items-center gap-2 px-2 py-2 w-full group rounded-lg hover:bg-secondary/30 transition-colors">
               <Star className="w-4 h-4 text-primary" />
-              <h2 className="text-xs font-display tracking-widest text-primary uppercase">
-                Kosher Music
-              </h2>
+              <h2 className="text-xs font-display tracking-widest text-primary uppercase">Kosher Music</h2>
               <span className="text-xs text-muted-foreground">({filteredKosher.length})</span>
               <ChevronDown className="w-4 h-4 text-primary ml-auto transition-transform group-data-[state=open]:rotate-180" />
             </CollapsibleTrigger>
             <CollapsibleContent>
               <div className="space-y-1 pt-2">
-                {filteredKosher.map((track) => {
-                  const originalIndex = playlist.findIndex((t) => t.id === track.id);
-                  return (
-                    <TrackItem
-                      key={track.id}
-                      track={track}
-                      index={originalIndex}
-                      isActive={currentTrackIndex === originalIndex}
-                      isPlaying={currentTrackIndex === originalIndex && isPlaying}
-                      onPlay={() => playTrack(originalIndex)}
-                    />
-                  );
-                })}
+                {filteredKosher.map((t, i) => row(t, filteredKosher, `kosher:${sort}`, i))}
               </div>
             </CollapsibleContent>
           </Collapsible>
         </section>
       )}
 
-      {/* Genre groups */}
       <section className="px-4">
-        {tracksByGenre.length === 0 && filteredKosher.length === 0 ? (
+        {ordered.length === 0 && filteredKosher.length === 0 ? (
           <p className="text-center text-sm text-muted-foreground py-8">No tracks found</p>
-        ) : (
+        ) : sort === "genre" ? (
           <div className="space-y-2">
             {tracksByGenre.map(({ genre, tracks: genreTracks }) => (
-              <Collapsible key={genre} defaultOpen={!!searchQuery}>
+              <Collapsible key={genre} defaultOpen={!!searchQuery || genreTracks.some((t) => t.id === currentTrack?.id)}>
                 <CollapsibleTrigger className="flex items-center gap-2 px-2 py-2 w-full group rounded-lg hover:bg-secondary/30 transition-colors">
                   <Music2 className="w-4 h-4 text-primary" />
-                  <h3 className="text-xs font-display tracking-widest text-foreground uppercase">
-                    {genre}
-                  </h3>
+                  <h3 className="text-xs font-display tracking-widest text-foreground uppercase">{genre}</h3>
                   <span className="text-xs text-muted-foreground">({genreTracks.length})</span>
                   <ChevronDown className="w-4 h-4 text-primary ml-auto transition-transform group-data-[state=open]:rotate-180" />
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <div className="space-y-1 pt-2">
-                    {genreTracks.map((track) => {
-                      const originalIndex = playlist.findIndex((t) => t.id === track.id);
-                      return (
-                        <TrackItem
-                          key={track.id}
-                          track={track}
-                          index={originalIndex}
-                          isActive={currentTrackIndex === originalIndex}
-                          isPlaying={currentTrackIndex === originalIndex && isPlaying}
-                          onPlay={() => playTrack(originalIndex)}
-                        />
-                      );
-                    })}
+                    {/* Playing from a genre continues through the whole genre-ordered list. */}
+                    {genreTracks.map((t, i) => row(t, ordered, contextKey, i))}
                   </div>
                 </CollapsibleContent>
               </Collapsible>
             ))}
           </div>
+        ) : (
+          <div className="space-y-1">
+            {ordered.map((t, i) => row(t, ordered, contextKey, i))}
+          </div>
+        )}
+        {contextId?.startsWith("sort:") && contextId !== contextKey && (
+          <p className="text-[11px] text-muted-foreground text-center pt-4">
+            Now playing in the order you had before. Tap a song to play in this order.
+          </p>
         )}
       </section>
     </div>

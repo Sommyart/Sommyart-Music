@@ -144,3 +144,8 @@
 .animate-float { animation: float 3s ease-in-out infinite; }
 .animate-pulse-neon { animation: pulse-neon 2s ease-in-out infinite; }
 .animate-spin-slow { animation: spin-slow 20s linear infinite; }
+
+@layer utilities {
+  .no-scrollbar { scrollbar-width: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+}

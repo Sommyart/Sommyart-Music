@@ -16,8 +16,8 @@ function formatBytes(bytes: number): string {
   return `${v.toFixed(v >= 100 ? 0 : 1)} ${units[i]}`;
 }
 
-function DownloadedTrackItem({ track, onRemove }: { track: Track & { downloadedAt: string }; onRemove: () => void }) {
-  const { playlist, currentTrackIndex, isPlaying, playTrack } = useMusicPlayerContext();
+function DownloadedTrackItem({ track, list, onRemove }: { track: Track & { downloadedAt: string }; list: Track[]; onRemove: () => void }) {
+  const { currentTrack, isPlaying, playContext } = useMusicPlayerContext();
   const [cover, setCover] = useState<string | null>(null);
 
   useEffect(() => {
@@ -25,13 +25,12 @@ function DownloadedTrackItem({ track, onRemove }: { track: Track & { downloadedA
   }, [track.audioUrl]);
 
   const displayCover = cover || track.coverUrl;
-  const originalIndex = playlist.findIndex((t) => t.id === track.id);
-  const isActive = currentTrackIndex === originalIndex;
+  const isActive = currentTrack?.id === track.id;
   const playing = isActive && isPlaying;
 
   return (
     <div className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${isActive ? "glass neon-border" : "hover:bg-secondary/50"}`}>
-      <button onClick={() => originalIndex >= 0 && playTrack(originalIndex)} className="flex items-center gap-3 flex-1 min-w-0">
+      <button onClick={() => playContext({ type: "downloads", id: "downloads", tracks: list, startIndex: Math.max(0, list.findIndex((t) => t.id === track.id)) })} className="flex items-center gap-3 flex-1 min-w-0">
         <div className={`w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 ${isActive ? "neon-glow" : ""}`}>
           <img src={displayCover} alt={track.title} className="w-full h-full object-cover" />
         </div>
@@ -125,7 +124,7 @@ const DownloadsScreen = () => {
       ) : (
         <div className="px-4 space-y-1">
           {downloadedTracks.map((track) => (
-            <DownloadedTrackItem key={track.id} track={track} onRemove={() => removeDownload(track)} />
+            <DownloadedTrackItem key={track.id} track={track} list={downloadedTracks} onRemove={() => removeDownload(track)} />
           ))}
         </div>
       )}
