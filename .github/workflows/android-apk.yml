@@ -45,9 +45,13 @@ jobs:
         working-directory: android
         run: |
           chmod +x gradlew
-          ./gradlew assembleRelease --no-daemon \
+          set -o pipefail
+          ./gradlew assembleRelease --no-daemon --stacktrace \
             -PappVersionCode=${{ github.run_number }} \
-            -PappVersionName=1.0.${{ github.run_number }}
+            -PappVersionName=1.0.${{ github.run_number }} 2>&1 | tee gradle.log || {
+              grep -E -A12 "What went wrong|error:|FAILURE|Exception" gradle.log | head -60 | while IFS= read -r l; do echo "::error::$l"; done
+              exit 1
+            }
 
       - name: Name the APK
         run: |
