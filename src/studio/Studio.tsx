@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { supabase as typedClient } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -7,49 +6,14 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import {
-  ArrowDown, ArrowUp, Disc3, ImagePlus, Loader2, LogOut, Music2, Trash2, UploadCloud, X, CheckCircle2, AlertCircle,
+  ArrowDown, ArrowUp, Disc3, Pencil, ImagePlus, Loader2, LogOut, Music2, Trash2, UploadCloud, X, CheckCircle2, AlertCircle,
 } from "lucide-react";
 
-// The generated types lag behind the schema; use an untyped handle for admin writes.
-const supabase = typedClient as any;
-
-const MAX_ALBUM_TRACKS = 15;
-const MAX_FILE_MB = 50;
-const AUDIO_ACCEPT = "audio/mpeg,audio/mp3,audio/mp4,audio/x-m4a,audio/aac,audio/wav,audio/x-wav,audio/ogg,.mp3,.m4a,.wav,.ogg,.aac";
-
-type Artist = { id: string; name: string };
-type TrackDraft = { key: string; file: File; title: string; status: "idle" | "uploading" | "done" | "error"; error?: string };
-
-const titleFromFile = (name: string) =>
-  name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
-
-const slug = (s: string) =>
-  s.normalize("NFKD").replace(/[̀-ͯ]/g, "").replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_|_$/g, "").slice(0, 60) || "file";
-
-const extOf = (f: File) => (f.name.match(/\.([a-z0-9]+)$/i)?.[1] || "bin").toLowerCase();
-
-async function uploadFile(bucket: "music" | "covers", file: File, base: string) {
-  const path = `${slug(base)}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}.${extOf(file)}`;
-  const { error } = await supabase.storage.from(bucket).upload(path, file, {
-    contentType: file.type || undefined,
-    upsert: false,
-  });
-  if (error) throw new Error(error.message);
-  return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl as string;
-}
-
-async function resolveArtist(name: string, artists: Artist[]): Promise<string | null> {
-  const clean = name.trim();
-  const found = artists.find((a) => a.name.toLowerCase() === clean.toLowerCase());
-  if (found) return found.id;
-  const { data, error } = await supabase.from("artists").insert({ name: clean }).select("id").single();
-  if (error) throw new Error(`Could not create artist: ${error.message}`);
-  return data.id;
-}
-
-function tooBig(f: File) {
-  return f.size > MAX_FILE_MB * 1024 * 1024;
-}
+import {
+  supabase, MAX_ALBUM_TRACKS, MAX_FILE_MB, AUDIO_ACCEPT, Artist, TrackDraft,
+  titleFromFile, uploadFile, resolveArtist, tooBig,
+} from "./lib";
+import { EditSongDialog, EditAlbumDialog } from "./Editors";
 
 /* ---------------------------------- Login --------------------------------- */
 
@@ -83,7 +47,7 @@ function Login({ onDone }: { onDone: () => void }) {
     <div className="min-h-screen flex items-center justify-center px-4">
       <form onSubmit={submit} className="glass rounded-2xl p-8 w-full max-w-sm space-y-5">
         <div className="text-center space-y-1">
-          <Disc3 className="w-10 h-10 mx-auto text-primary" />
+          <img src="/studio/icon-192.png" alt="" className="w-16 h-16 mx-auto rounded-2xl shadow-lg" />
           <h1 className="text-xl font-bold tracking-wider text-primary">SOMMYART STUDIO</h1>
           <p className="text-sm text-muted-foreground">Admin sign in</p>
         </div>
@@ -375,7 +339,9 @@ function AlbumUpload({ artists, onPublished }: { artists: Artist[]; onPublished:
 
 /* --------------------------------- Library -------------------------------- */
 
-function Library({ refreshKey, onChanged }: { refreshKey: number; onChanged: () => void }) {
+function Library({ refreshKey, onChanged, artists }: { refreshKey: number; onChanged: () => void; artists: Artist[] }) {
+  const [editSong, setEditSong] = useState<any | null>(null);
+  const [editAlbum, setEditAlbum] = useState<any | null>(null);
   const [songs, setSongs] = useState<any[]>([]);
   const [albums, setAlbums] = useState<any[]>([]);
   const [q, setQ] = useState("");
@@ -385,8 +351,8 @@ function Library({ refreshKey, onChanged }: { refreshKey: number; onChanged: () 
     (async () => {
       setLoading(true);
       const [s, a] = await Promise.all([
-        supabase.from("songs").select("id,title,artist,genre,cover_art_url,uploaded_at,album_id,track_number").order("uploaded_at", { ascending: false }),
-        supabase.from("albums").select("id,title,artist_name,cover_art_url,released_at").order("released_at", { ascending: false }),
+        supabase.from("songs").select("id,title,artist,genre,cover_art_url,audio_url,uploaded_at,album_id,track_number").order("uploaded_at", { ascending: false }),
+        supabase.from("albums").select("id,title,artist_name,cover_art_url,description,genre,released_at").order("released_at", { ascending: false }),
       ]);
       setSongs(s.data ?? []);
       setAlbums(a.data ?? []);
@@ -418,6 +384,8 @@ function Library({ refreshKey, onChanged }: { refreshKey: number; onChanged: () 
 
   return (
     <div className="space-y-6">
+      {editSong && <EditSongDialog song={editSong} albums={albums} artists={artists} onClose={() => setEditSong(null)} onSaved={onChanged} />}
+      {editAlbum && <EditAlbumDialog album={editAlbum} songs={songs} artists={artists} onClose={() => setEditAlbum(null)} onSaved={onChanged} />}
       <div className="grid grid-cols-2 gap-3">
         <div className="glass rounded-xl p-4"><div className="text-2xl font-bold text-primary">{songs.length}</div><div className="text-xs text-muted-foreground">songs in the app's library</div></div>
         <div className="glass rounded-xl p-4"><div className="text-2xl font-bold text-primary">{albums.length}</div><div className="text-xs text-muted-foreground">albums</div></div>
@@ -433,6 +401,7 @@ function Library({ refreshKey, onChanged }: { refreshKey: number; onChanged: () 
                 <div className="font-medium truncate">{a.title}</div>
                 <div className="text-xs text-muted-foreground">{a.artist_name} · {songs.filter((s) => s.album_id === a.id).length} songs</div>
               </div>
+              <button onClick={() => setEditAlbum(a)} className="p-2 text-muted-foreground hover:text-primary" aria-label="Edit album"><Pencil className="w-4 h-4" /></button>
               <button onClick={() => delAlbum(a.id, a.title)} className="p-2 text-muted-foreground hover:text-destructive" aria-label="Remove album"><Trash2 className="w-4 h-4" /></button>
             </div>
           ))}
@@ -451,11 +420,12 @@ function Library({ refreshKey, onChanged }: { refreshKey: number; onChanged: () 
                 {s.artist}{s.genre ? ` · ${s.genre}` : ""}{s.album_id ? ` · ${albumName(s.album_id) ?? "Album"} #${s.track_number ?? ""}` : ""} · {new Date(s.uploaded_at).toLocaleDateString()}
               </div>
             </div>
+            <button onClick={() => setEditSong(s)} className="p-2 text-muted-foreground hover:text-primary" aria-label="Edit song"><Pencil className="w-4 h-4" /></button>
             <button onClick={() => delSong(s.id, s.title)} className="p-2 text-muted-foreground hover:text-destructive" aria-label="Remove song"><Trash2 className="w-4 h-4" /></button>
           </div>
         ))}
         <p className="text-xs text-muted-foreground pt-2">
-          The songs built into the app itself aren't listed here. Only songs uploaded through the Studio, or imported from Lovable, can be managed from this page.
+          The songs built into the app itself aren't listed here. Only songs uploaded through the Studio, or imported from Lovable, can be edited here. Tap the pencil to edit a song or album.
         </p>
       </div>
     </div>
@@ -512,7 +482,7 @@ export default function Studio() {
       <header className="sticky top-0 z-10 glass-strong border-b border-border">
         <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Disc3 className="w-6 h-6 text-primary" />
+            <img src="/studio/icon-192.png" alt="" className="w-7 h-7 rounded-lg" />
             <span className="font-bold tracking-wider text-primary" style={{ fontFamily: "var(--font-display)" }}>STUDIO</span>
           </div>
           <div className="flex items-center gap-3 text-sm text-muted-foreground">
@@ -531,7 +501,7 @@ export default function Studio() {
           </TabsList>
           <TabsContent value="single"><SingleUpload artists={artists} onPublished={bump} /></TabsContent>
           <TabsContent value="album"><AlbumUpload artists={artists} onPublished={bump} /></TabsContent>
-          <TabsContent value="library"><Library refreshKey={refreshKey} onChanged={bump} /></TabsContent>
+          <TabsContent value="library"><Library refreshKey={refreshKey} onChanged={bump} artists={artists} /></TabsContent>
         </Tabs>
         <p className="text-xs text-muted-foreground text-center mt-10">
           Published songs appear in Sommyart Music straight away. Listeners see the "new tracks" announcement the next time they open the app.
