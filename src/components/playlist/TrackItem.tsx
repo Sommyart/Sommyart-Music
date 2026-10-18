@@ -1,4 +1,5 @@
-import { Play, Pause, Download, Check, Loader2, Heart, MoreVertical, ListMusic, CornerDownRight, Share2 } from "lucide-react";
+import { Play, Pause, Download, Heart, MoreVertical, ListMusic, CornerDownRight, Share2, Trash2 } from "lucide-react";
+import { DownloadedBadge } from "@/components/DownloadCollectionButton";
 import { Track } from "@/lib/tracks";
 import { useState, useEffect } from "react";
 import { extractCoverArt } from "@/lib/extractCoverArt";
@@ -23,7 +24,7 @@ interface Props {
 
 export function TrackItem({ track, index, isActive, isPlaying, onPlay }: Props) {
   const [cover, setCover] = useState<string | null>(null);
-  const { downloadTrack, isDownloaded, isDownloading } = useDownloadContext();
+  const { downloadTrack, removeDownload, isDownloaded, isDownloading } = useDownloadContext();
   const { isFavourite, toggleFavourite } = useFavouritesContext();
   const { playNext, addToQueue } = useMusicPlayerContext();
 
@@ -38,9 +39,11 @@ export function TrackItem({ track, index, isActive, isPlaying, onPlay }: Props) 
   const downloading = isDownloading(track.id);
   const fav = isFavourite(track.id);
 
-  const handleDownload = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!downloaded && !downloading) downloadTrack(track);
+  const handleDownload = () => {
+    if (!downloaded && !downloading) {
+      downloadTrack(track);
+      toast({ title: "Downloading", description: track.title });
+    }
   };
 
   const handleFavourite = (e: React.MouseEvent) => {
@@ -85,7 +88,8 @@ export function TrackItem({ track, index, isActive, isPlaying, onPlay }: Props) 
           <p className={`text-sm font-medium truncate ${isActive ? "text-primary neon-text" : "text-foreground"}`}>
             {track.title}
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
+            {(downloaded || downloading) && <DownloadedBadge downloading={downloading} />}
             <p className="text-xs text-muted-foreground truncate">{track.artist}</p>
             {track.genre && (
               <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary shrink-0">
@@ -105,23 +109,6 @@ export function TrackItem({ track, index, isActive, isPlaying, onPlay }: Props) 
         }`}
       >
         <Heart size={14} fill={fav ? "currentColor" : "none"} />
-      </button>
-
-      {/* Download */}
-      <button
-        onClick={handleDownload}
-        aria-label={downloaded ? "Downloaded" : "Download track"}
-        className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${
-          downloaded ? "text-primary" : "text-muted-foreground hover:text-primary"
-        }`}
-      >
-        {downloading ? (
-          <Loader2 size={14} className="animate-spin" />
-        ) : downloaded ? (
-          <Check size={14} />
-        ) : (
-          <Download size={14} />
-        )}
       </button>
 
       {/* Play state indicator */}
@@ -146,6 +133,15 @@ export function TrackItem({ track, index, isActive, isPlaying, onPlay }: Props) 
           <DropdownMenuItem onClick={() => { addToQueue(track); toast({ title: "Added to queue", description: track.title }); }}>
             <ListMusic size={14} className="mr-2" /> Add to queue
           </DropdownMenuItem>
+          {downloaded ? (
+            <DropdownMenuItem onClick={() => { removeDownload(track); toast({ title: "Removed from downloads", description: track.title }); }}>
+              <Trash2 size={14} className="mr-2" /> Remove download
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem onClick={handleDownload} disabled={downloading}>
+              <Download size={14} className="mr-2" /> {downloading ? "Downloading…" : "Download"}
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem onClick={handleShare}>
             <Share2 size={14} className="mr-2" /> Share song
           </DropdownMenuItem>

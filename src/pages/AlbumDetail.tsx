@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Play, Disc3, Share2, Lock } from "lucide-react";
+import { DownloadCollectionButton } from "@/components/DownloadCollectionButton";
 import { supabase } from "@/integrations/supabase/client";
 import { setPendingDestination } from "@/lib/pendingDestination";
 import { toast } from "@/hooks/use-toast";
@@ -153,6 +154,7 @@ const AlbumDetail = () => {
           >
             <Play size={16} /> PLAY ALBUM
           </button>
+          <DownloadCollectionButton tracks={tracks} label={album.title} />
           <button
             onClick={handleShare}
             aria-label="Share album"

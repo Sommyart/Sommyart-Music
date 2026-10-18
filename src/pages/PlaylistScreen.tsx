@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Search, X, Star, Music2, ChevronDown } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { TrackItem } from "@/components/playlist/TrackItem";
+import { DownloadCollectionButton } from "@/components/DownloadCollectionButton";
 import { useMusicPlayerContext } from "@/contexts/MusicPlayerContext";
 import { SEO } from "@/components/SEO";
 import { Track } from "@/lib/tracks";
@@ -43,9 +44,12 @@ const PlaylistScreen = () => {
         description="Browse the full Sommyart Music library by genre, search by title or artist, and explore the Kosher Acapella section. Holographic streaming, made simple."
         path="/playlist"
       />
-      <div className="px-6 pt-12 pb-4">
-        <h1 className="text-xl font-display font-bold tracking-wider text-foreground neon-text">Playlist</h1>
-        <p className="text-xs text-muted-foreground mt-1">{playlist.length} tracks</p>
+      <div className="px-6 pt-12 pb-4 flex items-end justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-display font-bold tracking-wider text-foreground neon-text">Playlist</h1>
+          <p className="text-xs text-muted-foreground mt-1">{playlist.length} tracks</p>
+        </div>
+        <DownloadCollectionButton tracks={playlist} label="your playlist" size={40} />
       </div>
 
       {/* Search Bar */}
