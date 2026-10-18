@@ -266,14 +266,12 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
     if (known) {
       applySource(known);
     } else {
-      applySource(remoteUrl);
-      resolvePlayableUrl(remoteUrl).then((resolved) => {
-        // Swap in the offline copy only if we are still on the same track and
-        // playback has not begun from the network yet.
-        if (cancelled || resolved === remoteUrl) return;
-        if (!audioRef.current || audioRef.current.currentTime > 0) return;
-        applySource(resolved);
-      });
+      // Check the on-device download first (a quick local lookup). Trying the
+      // network first made offline playback fail: the remote URL errored and
+      // the player skipped the track before the local copy was found.
+      resolvePlayableUrl(remoteUrl)
+        .then((resolved) => applySource(resolved))
+        .catch(() => applySource(remoteUrl));
     }
     return () => {
       cancelled = true;

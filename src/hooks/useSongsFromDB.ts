@@ -1,6 +1,48 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Track, tracks as staticTracks, kosherTracks as staticKosherTracks } from "@/lib/tracks";
+import { getAllTrackMeta } from "@/hooks/useOfflineDownloads";
+
+const CATALOG_KEY = "sommyart_catalog_v1";
+
+function saveCatalog(list: Track[]) {
+  try {
+    localStorage.setItem(CATALOG_KEY, JSON.stringify(list));
+  } catch {
+    /* storage full or unavailable */
+  }
+}
+
+function loadCatalog(): Track[] {
+  try {
+    const raw = localStorage.getItem(CATALOG_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Offline / error fallback: the last catalogue we saw online, plus every
+ * downloaded track (so downloads are always playable), plus bundled tracks.
+ */
+async function offlineCatalog(): Promise<Track[]> {
+  let downloaded: Track[] = [];
+  try {
+    downloaded = (await getAllTrackMeta()).map(({ downloadedAt, ...t }) => t as Track);
+  } catch {
+    /* IndexedDB unavailable */
+  }
+  const seen = new Set<string>();
+  const out: Track[] = [];
+  for (const t of [...downloaded, ...loadCatalog(), ...staticTracks]) {
+    if (!t?.id || seen.has(t.id)) continue;
+    seen.add(t.id);
+    out.push(t);
+  }
+  return out.sort((a, b) => a.title.localeCompare(b.title));
+}
 
 /**
  * Fetches songs from the database, falling back to static tracks.
@@ -18,14 +60,13 @@ export function useSongsFromDB() {
       const { data, error } = await supabase
         .from("songs")
         .select("*")
-        .order("title", { ascending: true });
+        .order("title", { ascending: true })
+        .abortSignal(AbortSignal.timeout(8000));
 
       if (error || !data || data.length === 0) {
-        const alphaStatic = [...staticTracks].sort((a, b) =>
-          a.title.localeCompare(b.title)
-        );
-        setSongs(alphaStatic);
-        setNewestTrack(alphaStatic[0] || null);
+        const fallback = await offlineCatalog();
+        setSongs(fallback);
+        setNewestTrack(fallback[0] || null);
         setNewestTracks([]);
       } else {
         const mapped: Track[] = data.map((s: any) => ({
@@ -63,16 +104,15 @@ export function useSongsFromDB() {
           const ts = new Date(t.uploadedAt).getTime();
           return !isNaN(ts) && now - ts <= ONE_WEEK_MS;
         });
+        saveCatalog(mapped);
         setSongs(merged);
         setNewestTrack(newest[0] || merged[0] || null);
         setNewestTracks(withinWeek.slice(0, 5));
       }
     } catch {
-      const alphaStatic = [...staticTracks].sort((a, b) =>
-        a.title.localeCompare(b.title)
-      );
-      setSongs(alphaStatic);
-      setNewestTrack(alphaStatic[0] || null);
+      const fallback = await offlineCatalog();
+      setSongs(fallback);
+      setNewestTrack(fallback[0] || null);
       setNewestTracks([]);
     } finally {
       setLoading(false);

@@ -47,7 +47,7 @@ async function removeTrackMeta(id: string) {
 }
 
 /** Get all downloaded track metadata */
-async function getAllTrackMeta(): Promise<(Track & { downloadedAt: string })[]> {
+export async function getAllTrackMeta(): Promise<(Track & { downloadedAt: string })[]> {
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, "readonly");
