@@ -8,7 +8,9 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 
 // The admin Studio ships from the same codebase but is deployed as its own site
 // (VITE_APP=studio), so the listener app never contains the upload dashboard UI.
-const isStudio = import.meta.env.VITE_APP === "studio";
+const isStudio =
+  import.meta.env.VITE_APP === "studio" ||
+  /^sommyart-studio[.-]/.test(window.location.hostname);
 const Studio = lazy(() => import("./studio/Studio"));
 
 if (isStudio) {
