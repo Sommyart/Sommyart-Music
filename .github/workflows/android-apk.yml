@@ -1,0 +1,78 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [connect-new-supabase, main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build web app
+        run: npm run build
+
+      - name: Copy web app into Android project
+        run: npx cap sync android
+
+      - name: Build signed APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon \
+            -PappVersionCode=${{ github.run_number }} \
+            -PappVersionName=1.0.${{ github.run_number }}
+
+      - name: Name the APK
+        run: |
+          mkdir -p out
+          cp android/app/build/outputs/apk/release/app-release.apk out/SommyartMusic.apk
+          cp out/SommyartMusic.apk "out/SommyartMusic-1.0.${{ github.run_number }}.apk"
+          ls -lh out
+
+      - name: Keep a copy on the workflow run
+        uses: actions/upload-artifact@v4
+        with:
+          name: SommyartMusic-1.0.${{ github.run_number }}
+          path: out/SommyartMusic.apk
+
+      - name: Publish to the "latest" download page
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-latest
+          name: Sommyart Music for Android (latest)
+          prerelease: false
+          make_latest: true
+          body: |
+            Latest Android build of Sommyart Music, version 1.0.${{ github.run_number }}.
+
+            Download **SommyartMusic.apk** below on your Android phone, open it, and allow
+            "Install unknown apps" for your browser if Android asks.
+          files: |
+            out/SommyartMusic.apk
+            out/SommyartMusic-1.0.${{ github.run_number }}.apk
