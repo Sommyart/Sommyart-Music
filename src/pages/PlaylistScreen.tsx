@@ -27,6 +27,9 @@ function loadSort(): SortMode {
   }
 }
 
+/** "Pop, Rock" counts as two genres. */
+const genresOf = (g?: string | null) => (g ?? "").split(",").map((x) => x.trim()).filter(Boolean);
+
 const byTitle = (a: Track, b: Track) => a.title.localeCompare(b.title, undefined, { sensitivity: "base" });
 const time = (t: Track) => (t.uploadedAt ? new Date(t.uploadedAt).getTime() || 0 : 0);
 
@@ -49,16 +52,33 @@ const PlaylistScreen = () => {
   } = useMusicPlayerContext();
   const [searchQuery, setSearchQuery] = useState("");
   const [sort, setSort] = useState<SortMode>(loadSort);
+  const [genreFilter, setGenreFilter] = useState(""); // lower-case genre, "" = all
 
   useEffect(() => {
     try { localStorage.setItem(SORT_KEY, sort); } catch { /* noop */ }
   }, [sort]);
 
-  const q = searchQuery.toLowerCase();
-  const matches = (t: Track) => t.title.toLowerCase().includes(q) || t.artist.toLowerCase().includes(q);
+  const q = searchQuery.trim().toLowerCase();
+  // Search looks at title, artist and genre; the genre chips narrow it further.
+  const matches = (t: Track) =>
+    (!q || `${t.title} ${t.artist} ${t.genre ?? ""}`.toLowerCase().includes(q)) &&
+    (!genreFilter || genresOf(t.genre).some((g) => g.toLowerCase() === genreFilter));
 
-  const filteredKosher = useMemo(() => sortTracks(kosherTracks.filter(matches), sort === "genre" ? "az" : sort), [kosherTracks, q, sort]);
-  const filteredMain = useMemo(() => mainTracks.filter(matches), [mainTracks, q]);
+  // Genre chips come from every song, with counts.
+  const genreChips = useMemo(() => {
+    const m = new Map<string, { label: string; n: number }>();
+    for (const t of [...mainTracks, ...kosherTracks]) {
+      for (const g of genresOf(t.genre)) {
+        const k = g.toLowerCase();
+        const cur = m.get(k);
+        m.set(k, { label: cur?.label ?? g, n: (cur?.n ?? 0) + 1 });
+      }
+    }
+    return Array.from(m.entries()).map(([key, v]) => ({ key, ...v })).sort((a, b) => a.label.localeCompare(b.label));
+  }, [mainTracks, kosherTracks]);
+
+  const filteredKosher = useMemo(() => sortTracks(kosherTracks.filter(matches), sort === "genre" ? "az" : sort), [kosherTracks, q, genreFilter, sort]);
+  const filteredMain = useMemo(() => mainTracks.filter(matches), [mainTracks, q, genreFilter]);
 
   // Genre view: genres A–Z, songs A–Z inside each genre.
   const tracksByGenre = useMemo(() => {
@@ -79,7 +99,7 @@ const PlaylistScreen = () => {
     [sort, tracksByGenre, filteredMain],
   );
 
-  const contextKey = `sort:${sort}${q ? `:q:${q}` : ""}`;
+  const contextKey = `sort:${sort}${genreFilter ? `:g:${genreFilter}` : ""}${q ? `:q:${q}` : ""}`;
 
   const playFrom = (list: Track[], track: Track, id: string) => {
     const startIndex = Math.max(0, list.findIndex((t) => t.id === track.id));
@@ -176,13 +196,40 @@ const PlaylistScreen = () => {
         ))}
       </div>
 
+      {/* Genre filter */}
+      {genreChips.length > 0 && (
+        <div className="px-4 mb-3 flex gap-2 overflow-x-auto no-scrollbar">
+          <button
+            onClick={() => setGenreFilter("")}
+            aria-pressed={!genreFilter}
+            className={`h-8 px-4 rounded-full text-xs font-medium whitespace-nowrap border transition-colors ${
+              !genreFilter ? "bg-primary text-primary-foreground border-primary" : "border-border/50 text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            All genres
+          </button>
+          {genreChips.map((g) => (
+            <button
+              key={g.key}
+              onClick={() => setGenreFilter(genreFilter === g.key ? "" : g.key)}
+              aria-pressed={genreFilter === g.key}
+              className={`h-8 px-4 rounded-full text-xs font-medium whitespace-nowrap border transition-colors ${
+                genreFilter === g.key ? "bg-primary text-primary-foreground border-primary" : "border-border/50 text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {g.label} <span className="opacity-70">{g.n}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Search Bar */}
       <div className="px-4 mb-4">
         <div className="relative">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
-            placeholder="Search tracks..."
+            placeholder="Search title, artist or genre..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full h-10 pl-9 pr-9 rounded-xl bg-secondary/50 border border-border/50 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 font-body"
@@ -201,7 +248,7 @@ const PlaylistScreen = () => {
       {/* Kosher Music Section */}
       {filteredKosher.length > 0 && (
         <section className="px-4 mb-4">
-          <Collapsible defaultOpen={!!searchQuery}>
+          <Collapsible defaultOpen={!!searchQuery || !!genreFilter}>
             <CollapsibleTrigger className="flex items-center gap-2 px-2 py-2 w-full group rounded-lg hover:bg-secondary/30 transition-colors">
               <Star className="w-4 h-4 text-primary" />
               <h2 className="text-xs font-display tracking-widest text-primary uppercase">Kosher Music</h2>
@@ -223,7 +270,7 @@ const PlaylistScreen = () => {
         ) : sort === "genre" ? (
           <div className="space-y-2">
             {tracksByGenre.map(({ genre, tracks: genreTracks }) => (
-              <Collapsible key={genre} defaultOpen={!!searchQuery || genreTracks.some((t) => t.id === currentTrack?.id)}>
+              <Collapsible key={genre} defaultOpen={!!searchQuery || !!genreFilter || genreTracks.some((t) => t.id === currentTrack?.id)}>
                 <CollapsibleTrigger className="flex items-center gap-2 px-2 py-2 w-full group rounded-lg hover:bg-secondary/30 transition-colors">
                   <Music2 className="w-4 h-4 text-primary" />
                   <h3 className="text-xs font-display tracking-widest text-foreground uppercase">{genre}</h3>

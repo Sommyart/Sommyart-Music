@@ -14,6 +14,13 @@ import {
   titleFromFile, uploadFile, resolveArtist, tooBig,
 } from "./lib";
 import { EditSongDialog, EditAlbumDialog } from "./Editors";
+import { kosherTracks } from "@/lib/tracks";
+
+/** "Pop, Rock" counts as two genres. */
+const genresOf = (g?: string | null) =>
+  (g ?? "").split(",").map((x) => x.trim()).filter(Boolean);
+const NO_GENRE = "__none__";
+const isBundled = (s: { audio_url?: string }) => !!s.audio_url && s.audio_url.startsWith("/music/");
 
 /* ---------------------------------- Login --------------------------------- */
 
@@ -345,6 +352,7 @@ function Library({ refreshKey, onChanged, artists }: { refreshKey: number; onCha
   const [songs, setSongs] = useState<any[]>([]);
   const [albums, setAlbums] = useState<any[]>([]);
   const [q, setQ] = useState("");
+  const [genre, setGenre] = useState<string>("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -360,8 +368,11 @@ function Library({ refreshKey, onChanged, artists }: { refreshKey: number; onCha
     })();
   }, [refreshKey]);
 
-  const delSong = async (id: string, title: string) => {
-    if (!window.confirm(`Remove "${title}" from the app? Listeners will no longer see it.`)) return;
+  const delSong = async (id: string, title: string, bundled = false) => {
+    const msg = bundled
+      ? `"${title}" is built into the app. Removing it here will not remove it from apps that are already installed, and it may come back. Remove anyway?`
+      : `Remove "${title}" from the app? Listeners will no longer see it.`;
+    if (!window.confirm(msg)) return;
     const { error } = await supabase.from("songs").delete().eq("id", id);
     if (error) return toast.error("Could not remove", { description: error.message });
     toast.success(`Removed "${title}"`);
@@ -377,7 +388,34 @@ function Library({ refreshKey, onChanged, artists }: { refreshKey: number; onCha
     onChanged();
   };
 
-  const filtered = songs.filter((s) => `${s.title} ${s.artist} ${s.genre ?? ""}`.toLowerCase().includes(q.toLowerCase()));
+  // Genre chips, built from every song (comma separated genres count separately).
+  const genreCounts = useMemo(() => {
+    const m = new Map<string, { label: string; n: number }>();
+    let none = 0;
+    for (const s of songs) {
+      const gs = genresOf(s.genre);
+      if (!gs.length) none++;
+      for (const g of gs) {
+        const k = g.toLowerCase();
+        const cur = m.get(k);
+        m.set(k, { label: cur?.label ?? g, n: (cur?.n ?? 0) + 1 });
+      }
+    }
+    const list = Array.from(m.entries()).map(([key, v]) => ({ key, ...v })).sort((a, b) => a.label.localeCompare(b.label));
+    return { list, none };
+  }, [songs]);
+
+  const matchesGenre = (g?: string | null) => {
+    if (!genre) return true;
+    const gs = genresOf(g).map((x) => x.toLowerCase());
+    return genre === NO_GENRE ? gs.length === 0 : gs.includes(genre);
+  };
+  const needle = q.trim().toLowerCase();
+  const matchesText = (t: { title: string; artist: string; genre?: string | null }) =>
+    !needle || `${t.title} ${t.artist} ${t.genre ?? ""}`.toLowerCase().includes(needle);
+
+  const filtered = songs.filter((s) => matchesText(s) && matchesGenre(s.genre));
+  const filteredKosher = kosherTracks.filter((t) => matchesText(t) && matchesGenre(t.genre));
   const albumName = (id: string | null) => albums.find((a) => a.id === id)?.title;
 
   if (loading) return <div className="py-10 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>;
@@ -411,22 +449,58 @@ function Library({ refreshKey, onChanged, artists }: { refreshKey: number; onCha
       <div className="space-y-2">
         <h3 className="text-sm font-semibold tracking-wider">SONGS · NEWEST FIRST</h3>
         <Input placeholder="Search title, artist or genre" value={q} onChange={(e) => setQ(e.target.value)} />
+        <div className="flex gap-2 overflow-x-auto no-scrollbar py-1">
+          {[
+            { key: "", label: "All", n: songs.length },
+            ...genreCounts.list,
+            ...(genreCounts.none ? [{ key: NO_GENRE, label: "No genre", n: genreCounts.none }] : []),
+          ].map((g) => (
+            <button
+              key={g.key || "all"}
+              type="button"
+              onClick={() => setGenre(g.key)}
+              aria-pressed={genre === g.key}
+              className={`h-8 px-3 rounded-full text-xs whitespace-nowrap border transition-colors ${
+                genre === g.key ? "bg-primary text-primary-foreground border-primary" : "border-border/50 text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {g.label} <span className="opacity-70">{g.n}</span>
+            </button>
+          ))}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Showing {filtered.length + filteredKosher.length} of {songs.length + kosherTracks.length} songs
+        </p>
         {filtered.map((s) => (
           <div key={s.id} className="glass rounded-xl p-3 flex items-center gap-3">
             <img src={s.cover_art_url || "/images/logo.png"} alt="" className="w-11 h-11 rounded-lg object-cover" />
             <div className="flex-1 min-w-0">
               <div className="font-medium truncate">{s.title}</div>
               <div className="text-xs text-muted-foreground truncate">
-                {s.artist}{s.genre ? ` · ${s.genre}` : ""}{s.album_id ? ` · ${albumName(s.album_id) ?? "Album"} #${s.track_number ?? ""}` : ""} · {new Date(s.uploaded_at).toLocaleDateString()}
+                {s.artist}{s.genre ? ` · ${s.genre}` : ""}{isBundled(s) ? " · built in" : ""}{s.album_id ? ` · ${albumName(s.album_id) ?? "Album"} #${s.track_number ?? ""}` : ""} · {new Date(s.uploaded_at).toLocaleDateString()}
               </div>
             </div>
             <button onClick={() => setEditSong(s)} className="p-2 text-muted-foreground hover:text-primary" aria-label="Edit song"><Pencil className="w-4 h-4" /></button>
-            <button onClick={() => delSong(s.id, s.title)} className="p-2 text-muted-foreground hover:text-destructive" aria-label="Remove song"><Trash2 className="w-4 h-4" /></button>
+            <button onClick={() => delSong(s.id, s.title, isBundled(s))} className="p-2 text-muted-foreground hover:text-destructive" aria-label="Remove song"><Trash2 className="w-4 h-4" /></button>
           </div>
         ))}
-        <p className="text-xs text-muted-foreground pt-2">
-          The songs built into the app itself aren't listed here. Only songs uploaded through the Studio, or imported from Lovable, can be edited here. Tap the pencil to edit a song or album.
-        </p>
+        {filteredKosher.length > 0 && (
+          <div className="space-y-2 pt-3">
+            <h3 className="text-sm font-semibold tracking-wider">KOSHER MUSIC · BUILT INTO THE APP</h3>
+            {filteredKosher.map((t) => (
+              <div key={t.id} className="glass rounded-xl p-3 flex items-center gap-3">
+                <img src={t.coverUrl} alt="" className="w-11 h-11 rounded-lg object-cover" />
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium truncate">{t.title}</div>
+                  <div className="text-xs text-muted-foreground truncate">{t.artist}{t.genre ? ` · ${t.genre}` : ""} · Kosher section</div>
+                </div>
+              </div>
+            ))}
+            <p className="text-xs text-muted-foreground">
+              These five live in the app's Kosher Music section and are shown here for reference only. To change them, tell Claude.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
