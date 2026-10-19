@@ -14,6 +14,7 @@ import {
   titleFromFile, uploadFile, resolveArtist, tooBig,
 } from "./lib";
 import { EditSongDialog, EditAlbumDialog } from "./Editors";
+import { ArtistsPanel } from "./Artists";
 import { kosherTracks } from "@/lib/tracks";
 
 /** "Pop, Rock" counts as two genres. */
@@ -568,14 +569,16 @@ export default function Studio() {
 
       <main className="max-w-2xl mx-auto px-4 pt-6">
         <Tabs defaultValue="single">
-          <TabsList className="grid grid-cols-3 w-full mb-6">
+          <TabsList className="grid grid-cols-4 w-full mb-6">
             <TabsTrigger value="single">Single</TabsTrigger>
             <TabsTrigger value="album">Album</TabsTrigger>
             <TabsTrigger value="library">Library</TabsTrigger>
+            <TabsTrigger value="artists">Artists</TabsTrigger>
           </TabsList>
           <TabsContent value="single"><SingleUpload artists={artists} onPublished={bump} /></TabsContent>
           <TabsContent value="album"><AlbumUpload artists={artists} onPublished={bump} /></TabsContent>
           <TabsContent value="library"><Library refreshKey={refreshKey} onChanged={bump} artists={artists} /></TabsContent>
+          <TabsContent value="artists"><ArtistsPanel refreshKey={refreshKey} onChanged={bump} /></TabsContent>
         </Tabs>
         <p className="text-xs text-muted-foreground text-center mt-10">
           Published songs appear in Sommyart Music straight away. Listeners see the "new tracks" announcement the next time they open the app.

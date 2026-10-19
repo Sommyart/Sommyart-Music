@@ -115,7 +115,18 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
       if (auto && repeat === "one" && rawCurrent) {
         if (audio) {
           audio.currentTime = 0;
-          if (audioEnabled) audio.play().catch(() => {});
+          if (audioEnabled) {
+            // If the restart is refused (some phones do this after "ended"),
+            // reload the same source and try once more instead of sitting still.
+            audio.play().catch(() => {
+              try {
+                audio.load();
+                audio.play().catch(() => {});
+              } catch {
+                /* noop */
+              }
+            });
+          }
         }
         setCurrentTime(0);
         return;
@@ -283,6 +294,15 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
     const audio = audioRef.current;
     if (audio) audio.volume = volume;
   }, [volume]);
+
+  // Repeat One uses the audio element's own looping, so the song restarts
+  // inside the media player with no JavaScript needed. This keeps working when
+  // the screen is off or the app is in the background, where the "ended"
+  // event can be delayed or missed. Next/Previous still move on as usual.
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (audio) audio.loop = repeat === "one";
+  }, [repeat]);
 
   useEffect(() => {
     if (!audioEnabled) audioRef.current?.pause();
