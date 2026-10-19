@@ -62,7 +62,7 @@ const DownloadsScreen = () => {
   const usedPct = storage.quotaBytes > 0 ? (storage.usedBytes / storage.quotaBytes) * 100 : 0;
 
   return (
-    <div className="min-h-screen pb-36">
+    <div className="min-h-screen pb-40">
       <SEO
         title="Offline Downloads | Sommyart Music"
         description="Manage tracks saved for offline playback on Sommyart Music. Listen to your favourite holographic beats anywhere — no connection required."

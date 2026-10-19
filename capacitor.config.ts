@@ -8,6 +8,9 @@ const config: CapacitorConfig = {
   android: {
     // Keep the WebView (and its audio) alive when the app goes to the background.
     allowMixedContent: false,
+    // On Android 15+ the app is drawn behind the phone's back/home buttons.
+    // "auto" keeps the web page above those system bars so nothing is covered.
+    adjustMarginsForEdgeToEdge: "auto",
   },
   server: {
     androidScheme: "https",

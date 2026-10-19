@@ -30,7 +30,7 @@ const MyPlaylists = () => {
   };
 
   return (
-    <div className="min-h-screen pb-36">
+    <div className="min-h-screen pb-40">
       <SEO title="My Playlists | Sommyart Music" description="Your personal playlists on Sommyart Music." path="/playlists" />
       <div className="px-6 pt-12 pb-3 flex items-center gap-3">
         <button onClick={() => navigate(-1)} aria-label="Go back" className="w-10 h-10 -ml-2 flex items-center justify-center text-muted-foreground hover:text-foreground">

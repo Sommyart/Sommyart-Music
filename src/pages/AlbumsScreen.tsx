@@ -8,7 +8,7 @@ const AlbumsScreen = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen pb-36">
+    <div className="min-h-screen pb-40">
       <SEO
         title="Albums — Sommyart Music"
         description="Browse every album on Sommyart Music, including Afro-Hebrew worship records from Sommyart Gospel Band."

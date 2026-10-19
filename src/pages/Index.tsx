@@ -67,7 +67,7 @@ const Index = () => {
   }, [mainTracks]);
 
   return (
-    <div className="min-h-screen pb-36">
+    <div className="min-h-screen pb-40">
       <SEO
         title="Sommyart Music — Stream Futuristic Neon Beats"
         description="Discover and stream exclusive holographic tracks on Sommyart Music. New releases, Kosher Acapella, lyrics and offline playback in one neon-blue PWA."

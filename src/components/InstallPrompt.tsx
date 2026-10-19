@@ -89,7 +89,7 @@ const InstallPrompt = () => {
   if (!visible) return null;
 
   return (
-    <div className="fixed bottom-24 left-4 right-4 z-50 max-w-lg mx-auto glass-strong rounded-2xl p-4 neon-border animate-fade-in">
+    <div className="fixed bottom-[calc(6rem+max(env(safe-area-inset-bottom),0.5rem))] left-4 right-4 z-50 max-w-lg mx-auto glass-strong rounded-2xl p-4 neon-border animate-fade-in">
       <div className="flex items-center gap-3">
         <img
           src="/icons/icon-192.png"

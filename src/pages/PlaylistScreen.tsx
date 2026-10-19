@@ -132,7 +132,7 @@ const PlaylistScreen = () => {
   const repeatLabel = repeat === "one" ? "Repeat one" : repeat === "all" ? "Repeat all" : "Repeat off";
 
   return (
-    <div className="min-h-screen pb-36">
+    <div className="min-h-screen pb-40">
       <SEO
         title="Playlist — Browse All Tracks | Sommyart Music"
         description="Browse the full Sommyart Music library by genre, search by title or artist, and explore the Kosher Acapella section. Holographic streaming, made simple."

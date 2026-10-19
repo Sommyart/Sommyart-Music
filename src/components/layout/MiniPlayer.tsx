@@ -43,7 +43,7 @@ export function MiniPlayer({ track, isPlaying, onTogglePlay, onNext, onPrev }: P
       role="button"
       tabIndex={0}
       aria-label={`Now playing ${track.title} by ${track.artist}. Open full player`}
-      className={`fixed bottom-16 left-0 right-0 z-40 glass-strong border-t border-border/30 cursor-pointer transition-all duration-[450ms] ease-[cubic-bezier(0.16,1,0.3,1)] animate-in slide-in-from-bottom-4 fade-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+      className={`fixed bottom-[calc(4rem+max(env(safe-area-inset-bottom),0.5rem))] left-0 right-0 z-40 glass-strong border-t border-border/30 cursor-pointer transition-all duration-[450ms] ease-[cubic-bezier(0.16,1,0.3,1)] animate-in slide-in-from-bottom-4 fade-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
         expanding ? "opacity-0 -translate-y-5 scale-105" : "opacity-100"
       }`}
       onClick={handleExpand}

@@ -51,7 +51,7 @@ const ArtistDetail = () => {
   }
 
   return (
-    <div className="min-h-screen pb-36">
+    <div className="min-h-screen pb-40">
       <SEO
         title={`${artist.name} — Artist on Sommyart Music`}
         description={

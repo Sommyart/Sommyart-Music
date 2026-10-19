@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
+import { useRef } from "react";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -12,6 +13,8 @@ import { useMusicPlayerContext } from "@/contexts/MusicPlayerContext";
 import { useDailyNotification } from "@/hooks/useDailyNotification";
 import { useNewTrackNotifier } from "@/hooks/useNewTrackNotifier";
 import { useMediaSession } from "@/hooks/useMediaSession";
+import { useSwipeTabs, TAB_PATHS } from "@/hooks/useSwipeTabs";
+import { UpdatePrompt } from "@/components/UpdatePrompt";
 
 
 import { useNavigate } from "react-router-dom";
@@ -41,6 +44,18 @@ function AppShell() {
   const navigate = useNavigate();
   useDailyNotification();
   useMediaSession();
+  useSwipeTabs();
+  const { pathname } = useLocation();
+  // Slide the page in from the side the user is moving toward.
+  const prevIndex = useRef(TAB_PATHS.indexOf(pathname));
+  const index = TAB_PATHS.indexOf(pathname);
+  const slide =
+    index >= 0 && prevIndex.current >= 0 && index !== prevIndex.current
+      ? index > prevIndex.current
+        ? "animate-in fade-in slide-in-from-right-8 duration-300"
+        : "animate-in fade-in slide-in-from-left-8 duration-300"
+      : "";
+  prevIndex.current = index;
   useNewTrackNotifier(mainTracks, songsLoading, () => {
 
     // Find and play the newest dated track
@@ -58,6 +73,7 @@ function AppShell() {
   });
   return (
     <>
+      <div key={pathname} className={slide}>
       <Routes>
 
         <Route path="/" element={<Index />} />
@@ -74,6 +90,7 @@ function AppShell() {
         <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
+      </div>
 
       <PendingDestinationHandler />
       <MiniPlayer track={currentTrack} isPlaying={isPlaying} onTogglePlay={togglePlay} onNext={handleNext} onPrev={handlePrev} />
@@ -92,6 +109,7 @@ const App = () => (
           <DownloadProvider>
             <FavouritesProvider>
               <InstallPrompt />
+              <UpdatePrompt />
               <AuthGate />
               <PlaylistPickerProvider>
                 <AppShell />

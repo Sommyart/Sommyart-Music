@@ -104,7 +104,7 @@ const MyPlaylistDetail = () => {
     );
 
   return (
-    <div className="min-h-screen pb-36">
+    <div className="min-h-screen pb-40">
       <SEO title={`${name} | Sommyart Music`} description={`Your playlist ${name} on Sommyart Music.`} path={`/playlists/${id}`} />
       <div className="px-6 pt-12 pb-3 flex items-center gap-3">
         <button onClick={() => navigate("/playlists")} aria-label="Back to my playlists" className="w-10 h-10 -ml-2 flex items-center justify-center text-muted-foreground hover:text-foreground">

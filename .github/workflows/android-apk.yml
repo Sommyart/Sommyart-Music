@@ -37,6 +37,9 @@ jobs:
 
       - name: Build web app
         run: npm run build
+        env:
+          # Lets the installed app know its own version so it can offer updates.
+          VITE_BUILD_NUMBER: ${{ github.run_number }}
 
       - name: Copy web app into Android project
         run: npx cap sync android
