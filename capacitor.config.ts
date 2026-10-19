@@ -12,6 +12,15 @@ const config: CapacitorConfig = {
     // "auto" keeps the web page above those system bars so nothing is covered.
     adjustMarginsForEdgeToEdge: "auto",
   },
+  plugins: {
+    LocalNotifications: {
+      smallIcon: "ic_stat_music",
+      iconColor: "#00E5FF",
+    },
+    PushNotifications: {
+      presentationOptions: ["alert", "sound"],
+    },
+  },
   server: {
     androidScheme: "https",
   },

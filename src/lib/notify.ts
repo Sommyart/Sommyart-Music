@@ -64,7 +64,10 @@ export async function requestNotifyPermission(): Promise<NotifyPermission> {
   try {
     if (native()) {
       const r = await LocalNotifications.requestPermissions();
-      return r.display === "granted" ? "granted" : r.display === "denied" ? "denied" : "prompt";
+      const result = r.display === "granted" ? "granted" : r.display === "denied" ? "denied" : "prompt";
+      // Let the push code know it can now ask Firebase for this phone's token.
+      if (result === "granted") window.dispatchEvent(new Event("sommyart:notify-permission"));
+      return result;
     }
     if (typeof Notification === "undefined") return "unsupported";
     const result = await Notification.requestPermission();

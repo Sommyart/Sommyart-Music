@@ -2,3 +2,6 @@ project_id = "biksluembwawllqdalct"
 
 [functions.auth-pin]
 verify_jwt = false
+
+[functions.send-new-song-push]
+verify_jwt = false

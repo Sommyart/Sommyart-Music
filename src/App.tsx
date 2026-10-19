@@ -10,6 +10,7 @@ import { FavouritesProvider } from "@/contexts/FavouritesContext";
 import { FollowsProvider } from "@/contexts/FollowsContext";
 import { NotificationPrompt } from "@/components/NotificationPrompt";
 import { useNewSongAlerts } from "@/hooks/useNewSongAlerts";
+import { usePushRegistration } from "@/hooks/usePushRegistration";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { MiniPlayer } from "@/components/layout/MiniPlayer";
 import { useMusicPlayerContext } from "@/contexts/MusicPlayerContext";
@@ -47,6 +48,7 @@ function AppShell() {
   const navigate = useNavigate();
   useDailyNotification();
   useNewSongAlerts();
+  usePushRegistration();
   useMediaSession();
   useSwipeTabs();
   const { pathname } = useLocation();

@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useFollows } from "@/contexts/FollowsContext";
 import { useMusicPlayerContext } from "@/contexts/MusicPlayerContext";
 import { getNotifyMode, onNotificationTapped, showSystemNotification } from "@/lib/notify";
+import { pushIsActive } from "@/lib/push";
 
 const db = supabase as any;
 
@@ -85,7 +86,8 @@ export function useNewSongAlerts() {
         action: { label: "Open", onClick: () => navigate(route) },
       });
       // Also raise a system notification when the app is not in front of the listener.
-      if (document.visibilityState !== "visible") {
+      // When push is set up, the server already notifies this phone; skip ours to avoid a double alert.
+      if (document.visibilityState !== "visible" && !pushIsActive()) {
         await showSystemNotification({ title, body, route, tag: "sommyart-new-song" });
       }
     };
