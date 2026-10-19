@@ -6,6 +6,7 @@ import { AdBanner } from "@/components/hero/AdBanner";
 import { AlbumShelf } from "@/components/album/AlbumShelf";
 import { ArtistShelf } from "@/components/album/ArtistShelf";
 import { SEO } from "@/components/SEO";
+import { NotificationBell } from "@/components/NotificationPrompt";
 
 import { useMusicPlayerContext } from "@/contexts/MusicPlayerContext";
 import { Track } from "@/lib/tracks";
@@ -87,6 +88,7 @@ const Index = () => {
             </h1>
             <p className="text-xs text-muted-foreground">Feel the frequency</p>
           </div>
+          <NotificationBell />
         </div>
       </div>
 

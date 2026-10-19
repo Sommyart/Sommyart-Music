@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Track, tracks as staticTracks, kosherTracks as staticKosherTracks } from "@/lib/tracks";
 import { getAllTrackMeta } from "@/hooks/useOfflineDownloads";
+import { mapSong, SONG_SELECT } from "@/hooks/useAlbums";
 
 const CATALOG_KEY = "sommyart_catalog_v1";
 
@@ -57,11 +58,19 @@ export function useSongsFromDB() {
   const fetchSongs = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from("songs")
-        .select("*")
+        .select(SONG_SELECT)
         .order("title", { ascending: true })
         .abortSignal(AbortSignal.timeout(8000));
+      if (error) {
+        // Collaborations unavailable: still load the plain song list.
+        ({ data, error } = await supabase
+          .from("songs")
+          .select("*")
+          .order("title", { ascending: true })
+          .abortSignal(AbortSignal.timeout(8000)) as any);
+      }
 
       if (error || !data || data.length === 0) {
         const fallback = await offlineCatalog();
@@ -69,19 +78,7 @@ export function useSongsFromDB() {
         setNewestTrack(fallback[0] || null);
         setNewestTracks([]);
       } else {
-        const mapped: Track[] = data.map((s: any) => ({
-          id: s.id,
-          title: s.title,
-          artist: s.artist,
-          audioUrl: s.audio_url,
-          coverUrl: s.cover_art_url || "/images/logo.png",
-          uploadedAt: s.uploaded_at,
-          genre: s.genre || undefined,
-          lyrics: Array.isArray(s.lyrics) ? s.lyrics : null,
-          albumId: s.album_id ?? null,
-          artistId: s.artist_id ?? null,
-          trackNumber: s.track_number ?? null,
-        }));
+        const mapped: Track[] = data.map((s: any) => mapSong(s));
         const seen = new Set<string>();
         const keyOf = (t: Track) =>
           `${t.title.trim().toLowerCase()}__${t.artist.trim().toLowerCase()}`;

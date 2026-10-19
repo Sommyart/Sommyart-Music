@@ -7,12 +7,14 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { ArrowDown, ArrowUp, ImagePlus, Loader2, Music2, Plus, RefreshCw, Undo2, UploadCloud, X } from "lucide-react";
 import {
-  supabase, Artist, AUDIO_ACCEPT, MAX_ALBUM_TRACKS, MAX_FILE_MB, resolveArtist, titleFromFile, tooBig, uploadFile,
+  supabase, Artist, AUDIO_ACCEPT, MAX_ALBUM_TRACKS, MAX_FILE_MB, Owner, resolveArtist, titleFromFile, tooBig, uploadFile,
 } from "./lib";
+import { CollabPicker, saveCollaborators } from "./Collab";
 
 export type SongRow = {
   id: string; title: string; artist: string; genre: string | null; cover_art_url: string | null;
   audio_url: string; uploaded_at: string; album_id: string | null; track_number: number | null;
+  description?: string | null; artist_id?: string | null;
 };
 export type AlbumRow = {
   id: string; title: string; artist_name: string; cover_art_url: string | null;
@@ -59,11 +61,14 @@ const pickAudio = (f: File | null | undefined) => {
 /* -------------------------------- Edit song -------------------------------- */
 
 export function EditSongDialog({
-  song, albums, artists, onClose, onSaved,
-}: { song: SongRow | null; albums: AlbumRow[]; artists: Artist[]; onClose: () => void; onSaved: () => void }) {
+  song, albums, artists, onClose, onSaved, owner,
+}: { song: SongRow | null; albums: AlbumRow[]; artists: Artist[]; onClose: () => void; onSaved: () => void; owner?: Owner }) {
   const [title, setTitle] = useState("");
   const [artist, setArtist] = useState("");
   const [genre, setGenre] = useState("");
+  const [description, setDescription] = useState("");
+  const [collabs, setCollabs] = useState<string[]>([]);
+  const [collabsLoaded, setCollabsLoaded] = useState(false);
   const [albumId, setAlbumId] = useState<string>("");
   const [cover, setCover] = useState<File | null>(null);
   const [audio, setAudio] = useState<File | null>(null);
@@ -72,7 +77,16 @@ export function EditSongDialog({
   useEffect(() => {
     if (!song) return;
     setTitle(song.title); setArtist(song.artist); setGenre(song.genre ?? "");
+    setDescription(song.description ?? "");
     setAlbumId(song.album_id ?? ""); setCover(null); setAudio(null);
+    setCollabsLoaded(false); setCollabs([]);
+    let cancelled = false;
+    supabase.from("song_artists").select("artist_id").eq("song_id", song.id).then(({ data }: any) => {
+      if (cancelled) return;
+      setCollabs((data ?? []).map((r: { artist_id: string }) => r.artist_id));
+      setCollabsLoaded(true);
+    });
+    return () => { cancelled = true; };
   }, [song]);
 
   if (!song) return null;
@@ -81,12 +95,14 @@ export function EditSongDialog({
     e.preventDefault();
     setBusy(true);
     try {
+      const artistId = owner ? owner.artistId : await resolveArtist(artist, artists);
       const patch: Record<string, unknown> = {
-        title: title.trim(), artist: artist.trim(), genre: genre.trim() || null,
-        artist_id: await resolveArtist(artist, artists),
+        title: title.trim(), artist: owner ? owner.artistName : artist.trim(), genre: genre.trim() || null,
+        description: description.trim() || null,
+        artist_id: artistId,
       };
-      if (cover) patch.cover_art_url = await uploadFile("covers", cover, title + "_cover");
-      if (audio) patch.audio_url = await uploadFile("music", audio, title);
+      if (cover) patch.cover_art_url = await uploadFile("covers", cover, title + "_cover", owner?.folder);
+      if (audio) patch.audio_url = await uploadFile("music", audio, title, owner?.folder);
       if ((albumId || null) !== song.album_id) {
         if (albumId) {
           const { count } = await supabase.from("songs").select("id", { count: "exact", head: true }).eq("album_id", albumId);
@@ -100,6 +116,7 @@ export function EditSongDialog({
       }
       const { error } = await supabase.from("songs").update(patch).eq("id", song.id);
       if (error) throw new Error(error.message);
+      if (collabsLoaded) await saveCollaborators([song.id], collabs.filter((c) => c !== artistId));
       toast.success("Song updated", { description: title });
       onSaved();
       onClose();
@@ -119,8 +136,16 @@ export function EditSongDialog({
         </DialogHeader>
         <form onSubmit={save} className="space-y-4">
           <div className="space-y-2"><Label>Title</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} required /></div>
-          <div className="space-y-2"><Label>Artist</Label><ArtistInput value={artist} onChange={setArtist} artists={artists} /></div>
+          {!owner && <div className="space-y-2"><Label>Artist</Label><ArtistInput value={artist} onChange={setArtist} artists={artists} /></div>}
+          {collabsLoaded && (
+            <CollabPicker artists={artists} selected={collabs} onChange={setCollabs} disabled={busy}
+              excludeId={owner?.artistId ?? song.artist_id ?? artists.find((a) => a.name.toLowerCase() === artist.trim().toLowerCase())?.id} />
+          )}
           <div className="space-y-2"><Label>Genre</Label><Input value={genre} onChange={(e) => setGenre(e.target.value)} placeholder="Afrobeat, Gospel, R&B…" /></div>
+          <div className="space-y-2">
+            <Label>Song description</Label>
+            <Textarea rows={4} maxLength={1500} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What is this song about?" />
+          </div>
           <div className="space-y-2">
             <Label>Album</Label>
             <select

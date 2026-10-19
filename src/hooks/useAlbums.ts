@@ -20,6 +20,7 @@ export interface Artist {
   bio: string | null;
   imageUrl: string;
   origin: string | null;
+  genre?: string | null;
 }
 
 const FALLBACK_COVER = "/images/logo.png";
@@ -44,14 +45,22 @@ export function mapArtist(a: any): Artist {
     bio: a.bio ?? null,
     imageUrl: a.image_url || FALLBACK_COVER,
     origin: a.origin ?? null,
+    genre: a.genre ?? null,
   };
 }
 
+/** Select string that also pulls collaborators (artists featured on a song). */
+export const SONG_SELECT = "*, song_artists(artist_id, artists(name))";
+
 export function mapSong(s: any): Track {
+  const collabs: { id: string; name: string }[] = (Array.isArray(s.song_artists) ? s.song_artists : [])
+    .map((c: any) => ({ id: c.artist_id as string, name: (c.artists?.name as string) ?? "" }))
+    .filter((c: { id: string; name: string }) => c.id && c.name && c.id !== s.artist_id);
+  const artist = collabs.length ? `${s.artist} feat. ${collabs.map((c) => c.name).join(", ")}` : s.artist;
   return {
     id: s.id,
     title: s.title,
-    artist: s.artist,
+    artist,
     audioUrl: s.audio_url,
     coverUrl: s.cover_art_url || FALLBACK_COVER,
     uploadedAt: s.uploaded_at,
@@ -60,6 +69,8 @@ export function mapSong(s: any): Track {
     albumId: s.album_id ?? null,
     artistId: s.artist_id ?? null,
     trackNumber: s.track_number ?? null,
+    description: s.description ?? null,
+    artistIds: [s.artist_id, ...collabs.map((c) => c.id)].filter(Boolean),
   };
 }
 
@@ -106,7 +117,7 @@ export function useAlbum(albumId?: string) {
         supabase.from("albums").select("*").eq("id", albumId).maybeSingle(),
         supabase
           .from("songs")
-          .select("*")
+          .select(SONG_SELECT)
           .eq("album_id", albumId)
           .order("track_number", { ascending: true }),
       ]);
@@ -153,14 +164,24 @@ export function useArtist(artistId?: string) {
           .order("released_at", { ascending: false }),
         supabase
           .from("songs")
-          .select("*")
+          .select(SONG_SELECT)
           .eq("artist_id", artistId)
           .order("title", { ascending: true }),
       ]);
+      // Songs this artist is featured on (collaborations).
+      const { data: collabRows } = await (supabase as any)
+        .from("song_artists")
+        .select("songs(" + SONG_SELECT + ")")
+        .eq("artist_id", artistId);
       if (cancelled) return;
+      const own: any[] = songRows ?? [];
+      const featured: any[] = (collabRows ?? []).map((r: any) => r.songs).filter(Boolean);
+      const seen = new Set(own.map((r) => r.id));
+      const all = [...own, ...featured.filter((r) => !seen.has(r.id))];
+      all.sort((a, b) => String(a.title).localeCompare(String(b.title)));
       setArtist(artistRow ? mapArtist(artistRow) : null);
       setAlbums((albumRows ?? []).map(mapAlbum));
-      setTracks((songRows ?? []).map(mapSong));
+      setTracks(all.map(mapSong));
       setLoading(false);
     })();
     return () => {

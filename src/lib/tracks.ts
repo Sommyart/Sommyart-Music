@@ -16,6 +16,9 @@ export interface Track {
   albumId?: string | null;
   artistId?: string | null;
   trackNumber?: number | null;
+  description?: string | null;
+  /** Every artist on the song: the main artist first, then collaborators. */
+  artistIds?: string[];
 }
 
 // Static fallback tracks — sorted alphabetically by title

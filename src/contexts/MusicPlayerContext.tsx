@@ -11,6 +11,7 @@ type PlayerContextType = Omit<BaseEngine, "applyRemoteState"> & {
   newestTrack: ReturnType<typeof useSongsFromDB>["newestTrack"];
   newestTracks: Track[];
   songsLoading: boolean;
+  refetchSongs: () => Promise<void>;
   kosherTracks: Track[];
   mainTracks: Track[];
   allTracks: Track[];
@@ -28,7 +29,7 @@ type PlayerContextType = Omit<BaseEngine, "applyRemoteState"> & {
 const MusicPlayerContext = createContext<PlayerContextType | null>(null);
 
 export function MusicPlayerProvider({ children }: { children: ReactNode }) {
-  const { songs, allSongs, kosherTracks, loading, newestTrack, newestTracks } = useSongsFromDB();
+  const { songs, allSongs, kosherTracks, loading, newestTrack, newestTracks, refetch } = useSongsFromDB();
   const sync = useDeviceSync();
 
   // Only the device that currently owns the session renders audio. Playback is
@@ -203,6 +204,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     newestTrack,
     newestTracks,
     songsLoading: loading,
+    refetchSongs: refetch,
     kosherTracks,
     mainTracks: songs,
     allTracks: allSongs,

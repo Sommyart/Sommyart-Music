@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { ImagePlus, Loader2, Pencil, User } from "lucide-react";
-import { supabase, uploadFile } from "./lib";
+import { supabase, uploadFile, shrinkImage } from "./lib";
 
 type ArtistRow = {
   id: string;
@@ -14,38 +14,19 @@ type ArtistRow = {
   bio: string | null;
   image_url: string | null;
   origin: string | null;
+  genre?: string | null;
+  owner_user_id?: string | null;
 };
 
 const BIO_MAX = 1500;
 const PLACEHOLDER = "/images/logo.png";
-
-/** Shrink big phone photos before uploading (max 1000 px, JPEG). Falls back to the original file. */
-async function shrinkImage(file: File): Promise<File> {
-  try {
-    if (!file.type.startsWith("image/") || file.type === "image/gif" || file.type === "image/svg+xml") return file;
-    const bmp = await createImageBitmap(file);
-    const scale = Math.min(1, 1000 / Math.max(bmp.width, bmp.height));
-    const w = Math.round(bmp.width * scale);
-    const h = Math.round(bmp.height * scale);
-    const canvas = document.createElement("canvas");
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return file;
-    ctx.drawImage(bmp, 0, 0, w, h);
-    const blob: Blob | null = await new Promise((res) => canvas.toBlob(res, "image/jpeg", 0.86));
-    if (!blob || blob.size >= file.size) return file;
-    return new File([blob], file.name.replace(/\.[^.]+$/, "") + ".jpg", { type: "image/jpeg" });
-  } catch {
-    return file;
-  }
-}
 
 function EditArtistDialog({
   artist, onClose, onSaved,
 }: { artist: ArtistRow; onClose: () => void; onSaved: () => void }) {
   const [bio, setBio] = useState(artist.bio ?? "");
   const [origin, setOrigin] = useState(artist.origin ?? "");
+  const [genre, setGenre] = useState(artist.genre ?? "");
   const [photo, setPhoto] = useState<File | null>(null);
   const [removePhoto, setRemovePhoto] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -62,6 +43,7 @@ function EditArtistDialog({
       const patch: Record<string, unknown> = {
         bio: bio.trim() || null,
         origin: origin.trim() || null,
+        genre: genre.trim() || null,
         updated_at: new Date().toISOString(),
       };
       if (photo) patch.image_url = await uploadFile("covers", await shrinkImage(photo), `${artist.name}_photo`);
@@ -122,6 +104,11 @@ function EditArtistDialog({
           </div>
 
           <div className="space-y-2">
+            <Label>Genre (optional)</Label>
+            <Input value={genre} onChange={(e) => setGenre(e.target.value)} placeholder="Afrobeat, Gospel…" />
+          </div>
+
+          <div className="space-y-2">
             <Label>Based in (optional)</Label>
             <Input value={origin} onChange={(e) => setOrigin(e.target.value)} placeholder="Enugu, Nigeria" />
           </div>
@@ -146,7 +133,7 @@ export function ArtistsPanel({ refreshKey, onChanged }: { refreshKey: number; on
     (async () => {
       setLoading(true);
       const [a, s] = await Promise.all([
-        supabase.from("artists").select("id,name,bio,image_url,origin").order("name"),
+        supabase.from("artists").select("id,name,bio,image_url,origin,genre,owner_user_id").order("name"),
         supabase.from("songs").select("artist_id"),
       ]);
       const c: Record<string, number> = {};
@@ -174,7 +161,7 @@ export function ArtistsPanel({ refreshKey, onChanged }: { refreshKey: number; on
           <div className="flex-1 min-w-0">
             <div className="font-medium truncate">{a.name}</div>
             <div className="text-xs text-muted-foreground truncate">
-              {counts[a.id] ?? 0} songs{a.origin ? ` · ${a.origin}` : ""}
+              {counts[a.id] ?? 0} songs{a.genre ? ` · ${a.genre}` : ""}{a.origin ? ` · ${a.origin}` : ""}{a.owner_user_id ? " · artist account" : ""}
             </div>
             <div className="text-xs text-muted-foreground line-clamp-1">{a.bio ? a.bio : "No description yet"}</div>
           </div>

@@ -126,6 +126,11 @@ const SongDetail = () => {
               {track.genre}
             </span>
           )}
+          {track.description && (
+            <p className="mt-4 text-sm text-muted-foreground leading-relaxed whitespace-pre-line text-left w-full">
+              {track.description}
+            </p>
+          )}
         </div>
 
         {authed === false ? (

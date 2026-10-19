@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { getNotifyMode, showSystemNotification } from "@/lib/notify";
 
 /**
  * Schedules a single daily local notification reminding the user to stream
@@ -31,23 +32,11 @@ function pickMessage() {
   return MESSAGES[Math.floor(Math.random() * MESSAGES.length)];
 }
 
-function showNotification() {
-  if (!("Notification" in window)) return;
-  if (Notification.permission !== "granted") return;
+async function showNotification() {
+  if (getNotifyMode() === "off") return;
   if (localStorage.getItem(STORAGE_KEY) === todayKey()) return;
-
-  try {
-    new Notification("Sommyart Music", {
-      body: pickMessage(),
-      icon: "/icons/icon-192.png",
-      badge: "/icons/icon-192.png",
-      tag: "sommyart-daily",
-    });
-    localStorage.setItem(STORAGE_KEY, todayKey());
-  } catch {
-    // Some browsers (iOS Safari) restrict the Notification constructor —
-    // silently ignore.
-  }
+  const shown = await showSystemNotification({ title: "Sommyart Music", body: pickMessage(), tag: "sommyart-daily" });
+  if (shown) localStorage.setItem(STORAGE_KEY, todayKey());
 }
 
 function msUntilNextNotification() {
@@ -62,21 +51,6 @@ function msUntilNextNotification() {
 
 export function useDailyNotification() {
   useEffect(() => {
-    if (!("Notification" in window)) return;
-
-    // Request permission once if still default
-    if (Notification.permission === "default") {
-      // Delay slightly so it doesn't fire on first paint
-      const t = setTimeout(() => {
-        Notification.requestPermission().catch(() => {});
-      }, 4000);
-      return () => clearTimeout(t);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!("Notification" in window)) return;
-
     let dailyTimer: number | undefined;
     let intervalTimer: number | undefined;
 
@@ -95,8 +69,7 @@ export function useDailyNotification() {
     todayTarget.setHours(NOTIFY_HOUR, NOTIFY_MINUTE, 0, 0);
     if (
       now.getTime() >= todayTarget.getTime() &&
-      localStorage.getItem(STORAGE_KEY) !== todayKey() &&
-      Notification.permission === "granted"
+      localStorage.getItem(STORAGE_KEY) !== todayKey() 
     ) {
       // small delay so the app has time to mount
       window.setTimeout(showNotification, 5000);
@@ -110,8 +83,7 @@ export function useDailyNotification() {
       const n = new Date();
       if (
         n.getHours() >= NOTIFY_HOUR &&
-        localStorage.getItem(STORAGE_KEY) !== todayKey() &&
-        Notification.permission === "granted"
+        localStorage.getItem(STORAGE_KEY) !== todayKey()
       ) {
         showNotification();
       }

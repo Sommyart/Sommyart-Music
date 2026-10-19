@@ -5,6 +5,7 @@ import { useArtist } from "@/hooks/useAlbums";
 import { useMusicPlayerContext } from "@/contexts/MusicPlayerContext";
 import { TrackItem } from "@/components/playlist/TrackItem";
 import { SEO } from "@/components/SEO";
+import { FollowButton } from "@/components/artist/FollowButton";
 
 const ArtistDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -84,6 +85,9 @@ const ArtistDetail = () => {
           <h1 className="text-2xl font-display font-bold text-foreground neon-text leading-tight">
             {artist.name}
           </h1>
+          {artist.genre && (
+            <span className="inline-block mt-1 mr-2 text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary">{artist.genre}</span>
+          )}
           {artist.origin && (
             <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
               <MapPin size={11} /> {artist.origin}
@@ -92,13 +96,14 @@ const ArtistDetail = () => {
         </div>
       </div>
 
-      <div className="px-6 pt-4">
+      <div className="px-6 pt-4 flex flex-wrap items-center gap-3">
         <button
           onClick={handlePlayAll}
           className="h-11 px-6 rounded-full bg-primary text-primary-foreground font-display tracking-wider text-sm flex items-center gap-2 neon-glow"
         >
           <Play size={16} /> PLAY ALL
         </button>
+        <FollowButton artistId={artist.id} artistName={artist.name} />
       </div>
 
       {/* About the artist */}

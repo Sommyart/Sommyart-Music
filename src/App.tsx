@@ -7,6 +7,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { MusicPlayerProvider } from "@/contexts/MusicPlayerContext";
 import { DownloadProvider } from "@/contexts/DownloadContext";
 import { FavouritesProvider } from "@/contexts/FavouritesContext";
+import { FollowsProvider } from "@/contexts/FollowsContext";
+import { NotificationPrompt } from "@/components/NotificationPrompt";
+import { useNewSongAlerts } from "@/hooks/useNewSongAlerts";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { MiniPlayer } from "@/components/layout/MiniPlayer";
 import { useMusicPlayerContext } from "@/contexts/MusicPlayerContext";
@@ -43,6 +46,7 @@ function AppShell() {
   const { currentTrack, isPlaying, togglePlay, handleNext, handlePrev, mainTracks, songsLoading, playTrack, playlist } = useMusicPlayerContext();
   const navigate = useNavigate();
   useDailyNotification();
+  useNewSongAlerts();
   useMediaSession();
   useSwipeTabs();
   const { pathname } = useLocation();
@@ -108,12 +112,15 @@ const App = () => (
         <MusicPlayerProvider>
           <DownloadProvider>
             <FavouritesProvider>
+              <FollowsProvider>
               <InstallPrompt />
               <UpdatePrompt />
+              <NotificationPrompt />
               <AuthGate />
               <PlaylistPickerProvider>
                 <AppShell />
               </PlaylistPickerProvider>
+              </FollowsProvider>
             </FavouritesProvider>
           </DownloadProvider>
         </MusicPlayerProvider>

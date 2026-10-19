@@ -1,6 +1,8 @@
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { Track } from "@/lib/tracks";
+import { useFollows } from "@/contexts/FollowsContext";
+import { getNotifyMode } from "@/lib/notify";
 
 const LAST_SEEN_KEY = "sommyart_last_seen_upload";
 
@@ -10,9 +12,10 @@ const LAST_SEEN_KEY = "sommyart_last_seen_upload";
  */
 export function useNewTrackNotifier(songs: Track[], loading: boolean, onView?: () => void) {
   const notifiedRef = useRef(false);
+  const { followedIds, loading: followsLoading } = useFollows();
 
   useEffect(() => {
-    if (loading || notifiedRef.current || !songs.length) return;
+    if (loading || followsLoading || notifiedRef.current || !songs.length) return;
 
     // Find tracks with upload timestamps (DB tracks)
     const dated = songs
@@ -37,7 +40,21 @@ export function useNewTrackNotifier(songs: Track[], loading: boolean, onView?: (
       (t) => new Date(t.uploadedAt!).getTime() > lastSeen
     );
 
-    if (newOnes.length === 0) return;
+    if (newOnes.length === 0) {
+      return;
+    }
+
+    // Songs from artists the listener follows come first.
+    const fromFollowed = newOnes.filter((t) => (t.artistIds ?? []).some((a) => followedIds.has(a)));
+    const mode = getNotifyMode();
+    if (mode === "off" || (mode === "following" && fromFollowed.length === 0)) {
+      localStorage.setItem(LAST_SEEN_KEY, String(latest));
+      return;
+    }
+    if (fromFollowed.length) {
+      const rest = newOnes.filter((t) => !fromFollowed.includes(t));
+      newOnes.splice(0, newOnes.length, ...fromFollowed, ...rest);
+    }
 
     const description =
       newOnes.length === 1
@@ -47,7 +64,11 @@ export function useNewTrackNotifier(songs: Track[], loading: boolean, onView?: (
           }`;
 
     toast.success(
-      newOnes.length === 1 ? "New track added" : `${newOnes.length} new tracks added`,
+      fromFollowed.length
+        ? `New from ${fromFollowed[0].artist.split(" feat.")[0]}`
+        : newOnes.length === 1
+          ? "New track added"
+          : `${newOnes.length} new tracks added`,
       {
         description,
         duration: 6000,
@@ -61,5 +82,5 @@ export function useNewTrackNotifier(songs: Track[], loading: boolean, onView?: (
     );
 
     localStorage.setItem(LAST_SEEN_KEY, String(latest));
-  }, [songs, loading, onView]);
+  }, [songs, loading, followsLoading, followedIds, onView]);
 }
