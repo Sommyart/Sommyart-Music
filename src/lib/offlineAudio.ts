@@ -7,8 +7,6 @@
  * Result: downloaded songs play with no network at all, and instantly.
  */
 
-import { offlineCacheKeys } from "@/lib/mediaUrl";
-
 const CACHE_NAME = "sommyart-offline-music-v1";
 
 /** Remote URL -> object URL for an already-resolved cached file. */
@@ -30,11 +28,7 @@ export async function resolvePlayableUrl(url: string): Promise<string> {
   try {
     if (!("caches" in window)) return url;
     const cache = await caches.open(CACHE_NAME);
-    let hit: Response | undefined;
-    for (const key of offlineCacheKeys(url)) {
-      hit = await cache.match(key);
-      if (hit) break;
-    }
+    const hit = await cache.match(full);
     if (!hit || hit.type === "opaque") return url;
     const blob = await hit.blob();
     if (!blob.size) return url;

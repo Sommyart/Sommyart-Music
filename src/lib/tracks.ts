@@ -21,10 +21,8 @@ export interface Track {
   artistIds?: string[];
 }
 
-import { onlineAudioUrl } from "@/lib/mediaUrl";
-
 // Static fallback tracks — sorted alphabetically by title
-const staticTracks: Track[] = [
+export const tracks: Track[] = [
   { id: "2", title: "Anointed", artist: "Sommyart", audioUrl: "/music/Anointed.mp3", coverUrl: "/images/logo.png", genre: "Gospel" },
   { id: "3", title: "Better Days Ahead", artist: "Sommyart", audioUrl: "/music/Better_Days_Ahead.mp3", coverUrl: "/images/logo.png", genre: "Inspirational" },
   { id: "33", title: "Brilliance in the Pit", artist: "Sommyart", audioUrl: "/music/Brilliance_in_the_Pit_Track_9.mp3", coverUrl: "/images/logo.png", genre: "Inspirational" },
@@ -65,15 +63,10 @@ const staticTracks: Track[] = [
 ].sort((a, b) => a.title.localeCompare(b.title));
 
 // Kosher Music tracks — sorted alphabetically
-const staticKosherTracks: Track[] = [
+export const kosherTracks: Track[] = [
   { id: "k1", title: "Adonai Echad (The One)", artist: "Sommyart", audioUrl: "/music/Adonai_Echad_The_One.mp3", coverUrl: "/images/logo.png", category: "kosher", genre: "Hebrew Worship" },
   { id: "k2", title: "Baruch Hashem Adonai", artist: "Sommyart", audioUrl: "/music/Baruch_Hashem_Adonai_Afro-Hebrew_Worship.mp3", coverUrl: "/images/logo.png", category: "kosher", genre: "Afro-Hebrew Worship" },
   { id: "k3", title: "Kadosh Adonai (Weight of Glory)", artist: "Sommyart", audioUrl: "/music/Kadosh_Adonai_Weight_of_Glory.mp3", coverUrl: "/images/logo.png", category: "kosher", genre: "Hebrew Worship" },
   { id: "k4", title: "Return to Hashem", artist: "Sommyart", audioUrl: "/music/Return_to_Hashem_Track_3.mp3", coverUrl: "/images/logo.png", category: "kosher", genre: "Hebrew Worship" },
   { id: "k5", title: "Shabbat Shalom (Sacred Stillness)", artist: "Sommyart", audioUrl: "/music/Shabbat_Shalom_Sacred_Stillness.mp3", coverUrl: "/images/logo.png", category: "kosher", genre: "Hebrew Worship" },
 ].sort((a, b) => a.title.localeCompare(b.title));
-
-// Inside the installed app the songs stream from the website instead of being bundled.
-const online = (list: Track[]): Track[] => list.map((t) => ({ ...t, audioUrl: onlineAudioUrl(t.audioUrl) }));
-export const tracks: Track[] = online(staticTracks);
-export const kosherTracks: Track[] = online(staticKosherTracks);

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Track } from "@/lib/tracks";
-import { onlineAudioUrl } from "@/lib/mediaUrl";
 
 export interface Album {
   id: string;
@@ -62,7 +61,7 @@ export function mapSong(s: any): Track {
     id: s.id,
     title: s.title,
     artist,
-    audioUrl: onlineAudioUrl(s.audio_url),
+    audioUrl: s.audio_url,
     coverUrl: s.cover_art_url || FALLBACK_COVER,
     uploadedAt: s.uploaded_at,
     genre: s.genre || undefined,
