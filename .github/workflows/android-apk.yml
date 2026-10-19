@@ -41,6 +41,9 @@ jobs:
           # Lets the installed app know its own version so it can offer updates.
           VITE_BUILD_NUMBER: ${{ github.run_number }}
 
+      - name: Leave the songs out of the app (they stream from the website)
+        run: rm -rf dist/music
+
       - name: Copy web app into Android project
         run: npx cap sync android
 

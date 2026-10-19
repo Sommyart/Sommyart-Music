@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Track } from "@/lib/tracks";
 import { releasePlayableUrl, resolvePlayableUrl } from "@/lib/offlineAudio";
+import { offlineCacheKeys, onlineAudioUrl } from "@/lib/mediaUrl";
 
 
 const CACHE_NAME = "sommyart-offline-music-v1";
@@ -52,7 +53,7 @@ export async function getAllTrackMeta(): Promise<(Track & { downloadedAt: string
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, "readonly");
     const req = tx.objectStore(STORE_NAME).getAll();
-    req.onsuccess = () => resolve(req.result);
+    req.onsuccess = () => resolve((req.result as (Track & { downloadedAt: string })[]).map((t) => ({ ...t, audioUrl: onlineAudioUrl(t.audioUrl) })));
     req.onerror = () => reject(req.error);
   });
 }
@@ -114,8 +115,7 @@ async function cacheAudio(
 /** Remove an audio file from Cache API */
 async function removeCachedAudio(url: string): Promise<void> {
   const cache = await caches.open(CACHE_NAME);
-  const fullUrl = url.startsWith("http") ? url : `${window.location.origin}${url}`;
-  await cache.delete(fullUrl);
+  for (const key of offlineCacheKeys(url)) await cache.delete(key);
 }
 
 /**
