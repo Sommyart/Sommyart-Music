@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Search, X, Star, Music2, ChevronDown, Play, Shuffle, Repeat, Repeat1 } from "lucide-react";
+import { Search, X, Star, Music2, ChevronDown, Play, Shuffle, Repeat, Repeat1, ListMusic } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { TrackItem } from "@/components/playlist/TrackItem";
 import { DownloadCollectionButton } from "@/components/DownloadCollectionButton";
@@ -50,6 +51,7 @@ const PlaylistScreen = () => {
     playlist, currentTrack, isPlaying, playContext, kosherTracks, mainTracks,
     shuffle, repeat, setShuffle, setRepeat, contextId,
   } = useMusicPlayerContext();
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [sort, setSort] = useState<SortMode>(loadSort);
   const [genreFilter, setGenreFilter] = useState(""); // lower-case genre, "" = all
@@ -141,7 +143,16 @@ const PlaylistScreen = () => {
           <h1 className="text-xl font-display font-bold tracking-wider text-foreground neon-text">Playlist</h1>
           <p className="text-xs text-muted-foreground mt-1">{playlist.length} tracks</p>
         </div>
-        <DownloadCollectionButton tracks={playlist} label="your playlist" size={40} />
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => navigate("/playlists")}
+            aria-label="My playlists"
+            className="h-10 px-3 rounded-full border border-border/50 text-xs text-muted-foreground hover:text-primary hover:border-primary/50 flex items-center gap-1.5"
+          >
+            <ListMusic size={14} /> My playlists
+          </button>
+          <DownloadCollectionButton tracks={playlist} label="your playlist" size={40} />
+        </div>
       </div>
 
       {/* Play controls: play in order, shuffle, repeat (off → all → one) */}

@@ -13,6 +13,9 @@ import {
   savePersisted,
 } from "@/lib/playback";
 
+/** "time": stop at a clock time. "track": stop when the current song ends. */
+export type SleepTimer = { kind: "time"; endsAt: number } | { kind: "track" } | null;
+
 interface PlayContextArgs {
   type: PlaybackContextType;
   id?: string | null;
@@ -46,6 +49,19 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
   const [shuffleOrder, setShuffleOrder] = useState<number[] | null>(null);
   const [extractedCover, setExtractedCover] = useState<string | null>(null);
   const [unavailable, setUnavailable] = useState<Record<string, true>>({});
+  const [muted, setMuted] = useState(false);
+  const [sleep, setSleep] = useState<SleepTimer>(null);
+  const [sleepRemaining, setSleepRemaining] = useState<number | null>(null);
+
+  // Latest values for listeners that must never go stale.
+  const sleepRef = useRef<SleepTimer>(null);
+  sleepRef.current = sleep;
+  const isPlayingRef = useRef(false);
+  isPlayingRef.current = isPlaying;
+  const volumeRef = useRef(1);
+  volumeRef.current = volume;
+  // The first remote state we receive after launch must not switch Repeat One back on.
+  const firstRemoteRef = useRef(true);
 
   // Position to seek to once the next media element is ready (restore/remote).
   const pendingSeekRef = useRef<number | null>(null);
@@ -111,6 +127,26 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
     (auto: boolean) => {
       const audio = audioRef.current;
 
+      // Sleep timer set to "end of track": stop here instead of moving on.
+      if (auto && sleepRef.current?.kind === "track") {
+        setSleep(null);
+        stopPlayback();
+        return;
+      }
+
+      // Starting the very same song again (a one-song list on Repeat All, or the
+      // same song queued twice) does not change the source, so restart it by hand.
+      const restartSame = (next: Track | null | undefined) => {
+        if (!next || !rawCurrent || next.id !== rawCurrent.id) return false;
+        if (audio) {
+          audio.currentTime = 0;
+          if (audioEnabled) audio.play().catch(() => {});
+        }
+        setCurrentTime(0);
+        setIsPlaying(true);
+        return true;
+      };
+
       // Repeat One only auto-loops; an explicit Next still moves on.
       if (auto && repeat === "one" && rawCurrent) {
         if (audio) {
@@ -140,6 +176,7 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
       if (queue.length > 0) {
         const [head, ...rest] = queue;
         setQueue(rest);
+        if (restartSame(head)) return;
         setQueueTrack(head);
         setSource("queue");
         setIsPlaying(true);
@@ -150,6 +187,12 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
       // 2) Remaining playback context.
       const next = nextContextIndex();
       if (next !== null) {
+        if (restartSame(contextTracks[next])) {
+          setSource("context");
+          setQueueTrack(null);
+          setContextIndex(next);
+          return;
+        }
         setSource("context");
         setQueueTrack(null);
         setContextIndex(next);
@@ -162,6 +205,12 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
       if (repeat === "all" && contextTracks.length > 0) {
         const order = orderOf(contextTracks.length);
         if (shuffle) setShuffleOrder(buildShuffleOrder(contextTracks.length, order[0] ?? 0));
+        if (restartSame(contextTracks[order[0] ?? 0])) {
+          setSource("context");
+          setQueueTrack(null);
+          setContextIndex(order[0] ?? 0);
+          return;
+        }
         setSource("context");
         setQueueTrack(null);
         setContextIndex(order[0] ?? 0);
@@ -180,7 +229,7 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
       contextIndex,
       source,
       nextContextIndex,
-      contextTracks.length,
+      contextTracks,
       orderOf,
       shuffle,
       pushHistory,
@@ -197,15 +246,29 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
 
     const onTime = () => setCurrentTime(audio.currentTime);
     const onMeta = () => setDuration(audio.duration);
+    // One advance per finished song, however many signals report the end.
     let endedLock = false;
-    const onEnded = () => {
-      if (endedLock) return; // race guard: one advance per ended event
+    const fireEnded = () => {
+      if (endedLock) return;
       endedLock = true;
       window.setTimeout(() => {
         endedLock = false;
-      }, 400);
+      }, 1500);
       advanceRef.current(true);
     };
+    const onEnded = fireEnded;
+    // Safety net: some phones delay or drop the "ended" event (screen off, app in
+    // the background). Check the element itself once a second and when the app
+    // comes back to the foreground, so a finished song always moves on.
+    const checkFinished = () => {
+      if (!isPlayingRef.current || audio.loop || !audio.src) return;
+      const d = audio.duration;
+      const atEnd =
+        audio.ended || (isFinite(d) && d > 1 && audio.paused && audio.currentTime >= d - 0.3);
+      if (atEnd) fireEnded();
+    };
+    const poll = window.setInterval(checkFinished, 1000);
+    document.addEventListener("visibilitychange", checkFinished);
     const onError = () => {
       const err = audio.error;
       if (!audio.src) return;
@@ -229,6 +292,8 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
       audio.removeEventListener("loadedmetadata", onMeta);
       audio.removeEventListener("ended", onEnded);
       audio.removeEventListener("error", onError);
+      window.clearInterval(poll);
+      document.removeEventListener("visibilitychange", checkFinished);
       audio.pause();
       audio.src = "";
     };
@@ -301,8 +366,42 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
   // event can be delayed or missed. Next/Previous still move on as usual.
   useEffect(() => {
     const audio = audioRef.current;
-    if (audio) audio.loop = repeat === "one";
-  }, [repeat]);
+    if (audio) audio.loop = repeat === "one" && sleep?.kind !== "track";
+  }, [repeat, sleep]);
+
+  // Mute is separate from volume so the slider keeps its position.
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.muted = muted;
+  }, [muted]);
+
+  // Sleep timer: count down, fade out over the last 5 seconds, then pause.
+  useEffect(() => {
+    if (!sleep || sleep.kind !== "time") {
+      setSleepRemaining(null);
+      return;
+    }
+    const tick = () => {
+      const left = Math.max(0, Math.ceil((sleep.endsAt - Date.now()) / 1000));
+      setSleepRemaining(left);
+      const audio = audioRef.current;
+      if (left > 0) {
+        if (audio && left <= 5) audio.volume = volumeRef.current * (left / 5);
+        return;
+      }
+      if (audio) {
+        audio.pause();
+        audio.volume = volumeRef.current;
+      }
+      setIsPlaying(false);
+      setSleep(null);
+    };
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => {
+      window.clearInterval(id);
+      if (audioRef.current) audioRef.current.volume = volumeRef.current;
+    };
+  }, [sleep]);
 
   useEffect(() => {
     if (!audioEnabled) audioRef.current?.pause();
@@ -392,13 +491,27 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
     [library, playContext],
   );
 
+  // A shared/opened song keeps playing into the rest of the library instead of stopping.
   const playSingle = useCallback(
-    (track: Track) => playContext({ type: "single", id: track.id, tracks: [track], startIndex: 0 }),
-    [playContext],
+    (track: Track) => {
+      const idx = library.findIndex((t) => t.id === track.id);
+      if (idx >= 0) playContext({ type: "library", id: null, tracks: library, startIndex: idx });
+      else playContext({ type: "single", id: track.id, tracks: [track], startIndex: 0 });
+    },
+    [library, playContext],
   );
 
   // ---------- Queue API ----------
+  /** Add to the end of the manual queue ("Play last"). */
   const addToQueue = useCallback((track: Track) => setQueue((q) => [...q, track]), []);
+  const playLast = addToQueue;
+  const toggleMute = useCallback(() => setMuted((m) => !m), []);
+  /** minutes, "track" (end of the current song) or null to cancel. */
+  const setSleepTimer = useCallback((value: number | "track" | null) => {
+    if (value === null) setSleep(null);
+    else if (value === "track") setSleep({ kind: "track" });
+    else setSleep({ kind: "time", endsAt: Date.now() + value * 60_000 });
+  }, []);
   /** Stack behaviour: the most recent "Play Next" plays first. */
   const playNext = useCallback((track: Track) => setQueue((q) => [track, ...q]), []);
   const removeFromQueue = useCallback(
@@ -469,6 +582,7 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
 
   const setVolume = useCallback((v: number) => {
     const clamped = Math.min(1, Math.max(0, v));
+    if (clamped > 0) setMuted(false);
     setVolumeState(clamped);
     if (audioRef.current) audioRef.current.volume = clamped;
   }, []);
@@ -545,7 +659,8 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
       setCurrentTime(s.positionSeconds);
       setIsPlaying(s.isPlaying);
       if (typeof s.shuffle === "boolean") setShuffleState(s.shuffle);
-      if (s.repeat) setRepeatState(s.repeat);
+      if (s.repeat) setRepeatState(firstRemoteRef.current && s.repeat === "one" ? "off" : s.repeat);
+      firstRemoteRef.current = false;
       if (typeof s.contextIndex === "number" && !s.songId) setContextIndex(s.contextIndex);
     },
     [library, contextTracks, contextIndex],
@@ -576,7 +691,9 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
       }
     }
     setShuffleState(!!saved.shuffle);
-    setRepeatState(saved.repeat ?? "off");
+    // Repeat One is a "right now" mode: coming back to the app with it still on
+    // looks like the player is stuck on one song, so it is not restored.
+    setRepeatState(saved.repeat === "one" ? "off" : saved.repeat ?? "off");
     setVolumeState(typeof saved.volume === "number" ? saved.volume : 1);
     setPlaybackRateState(saved.playbackRate || 1);
     if (saved.position > 0) {
@@ -646,6 +763,9 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
     repeat,
     playbackRate,
     volume,
+    muted,
+    sleepTimer: sleep,
+    sleepRemaining,
     unavailable,
     // transport
     togglePlay,
@@ -658,6 +778,7 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
     playSingle,
     // queue
     addToQueue,
+    playLast,
     playNext,
     removeFromQueue,
     reorderQueue,
@@ -670,6 +791,8 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
     setRepeatValue,
     setPlaybackRate,
     setVolume,
+    toggleMute,
+    setSleepTimer,
     // internals for sync layer
     applyRemoteState,
     setDisplayTime,

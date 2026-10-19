@@ -1,40 +1,33 @@
+import { useState } from "react";
+import { Scrubber } from "@/components/player/Scrubber";
+import { formatTime } from "@/lib/playback";
+
 interface Props {
   currentTime: number;
   duration: number;
   onSeek: (time: number) => void;
 }
 
-function fmt(s: number) {
-  const m = Math.floor(s / 60);
-  const sec = Math.floor(s % 60);
-  return `${m}:${sec.toString().padStart(2, "0")}`;
-}
-
+/** Seekable progress bar: drag or tap to jump, arrow keys skip 5 seconds. */
 export function ProgressBar({ currentTime, duration, onSeek }: Props) {
-  const pct = duration > 0 ? (currentTime / duration) * 100 : 0;
+  const valid = isFinite(duration) && duration > 0;
+  const [preview, setPreview] = useState<number | null>(null);
+  const shownTime = preview !== null && valid ? preview * duration : currentTime;
 
   return (
-    <div className="w-full px-2">
-      <div
-        className="relative w-full h-2 rounded-full bg-secondary cursor-pointer group"
-        onClick={(e) => {
-          const rect = e.currentTarget.getBoundingClientRect();
-          const x = (e.clientX - rect.left) / rect.width;
-          onSeek(x * duration);
-        }}
-      >
-        <div
-          className="absolute inset-y-0 left-0 rounded-full bg-primary neon-glow transition-all"
-          style={{ width: `${pct}%` }}
-        />
-        <div
-          className="absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-primary neon-glow opacity-0 group-hover:opacity-100 transition-opacity"
-          style={{ left: `${pct}%`, transform: `translateX(-50%) translateY(-50%)` }}
-        />
-      </div>
-      <div className="flex justify-between mt-1 text-xs text-muted-foreground font-body">
-        <span>{fmt(currentTime)}</span>
-        <span>{fmt(duration)}</span>
+    <div className="w-full">
+      <Scrubber
+        value={valid ? currentTime / duration : 0}
+        onPreview={setPreview}
+        onCommit={(v) => valid && onSeek(v * duration)}
+        label="Seek"
+        valueText={valid ? `${formatTime(shownTime)} of ${formatTime(duration)}` : undefined}
+        keyStep={valid ? 5 / duration : 0.02}
+        disabled={!valid}
+      />
+      <div className="flex justify-between -mt-1 text-xs text-muted-foreground font-body tabular-nums">
+        <span aria-hidden="true">{formatTime(shownTime)}</span>
+        <span aria-hidden="true">{valid ? formatTime(duration) : "0:00"}</span>
       </div>
     </div>
   );

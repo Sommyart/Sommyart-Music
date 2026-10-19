@@ -28,6 +28,9 @@ import OAuthConsent from "./pages/OAuthConsent";
 import InstallPrompt from "./components/InstallPrompt";
 import { AuthGate } from "./components/AuthGate";
 import SongDetail from "./pages/SongDetail";
+import MyPlaylists from "./pages/MyPlaylists";
+import MyPlaylistDetail from "./pages/MyPlaylistDetail";
+import { PlaylistPickerProvider } from "@/contexts/PlaylistPickerContext";
 import { PendingDestinationHandler } from "./components/PendingDestinationHandler";
 
 
@@ -61,6 +64,8 @@ function AppShell() {
         <Route path="/player" element={<PlayerScreen />} />
         <Route path="/playlist" element={<PlaylistScreen />} />
         <Route path="/downloads" element={<DownloadsScreen />} />
+        <Route path="/playlists" element={<MyPlaylists />} />
+        <Route path="/playlists/:id" element={<MyPlaylistDetail />} />
         <Route path="/albums" element={<AlbumsScreen />} />
         <Route path="/album/:id" element={<AlbumDetail />} />
         <Route path="/song/:id" element={<SongDetail />} />
@@ -88,7 +93,9 @@ const App = () => (
             <FavouritesProvider>
               <InstallPrompt />
               <AuthGate />
-              <AppShell />
+              <PlaylistPickerProvider>
+                <AppShell />
+              </PlaylistPickerProvider>
             </FavouritesProvider>
           </DownloadProvider>
         </MusicPlayerProvider>

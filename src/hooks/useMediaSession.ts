@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useMusicPlayerContext } from "@/contexts/MusicPlayerContext";
 
 /**
@@ -16,6 +16,11 @@ export function useMediaSession() {
     handlePrev,
     seek,
   } = useMusicPlayerContext();
+
+  // Handlers read the latest values from a ref so they are registered once per
+  // track instead of on every time tick.
+  const live = useRef({ togglePlay, handleNext, handlePrev, seek, currentTime, duration });
+  live.current = { togglePlay, handleNext, handlePrev, seek, currentTime, duration };
 
   // Metadata + action handlers
   useEffect(() => {
@@ -36,18 +41,18 @@ export function useMediaSession() {
     } catch {/* noop */}
 
     const ms = navigator.mediaSession;
-    ms.setActionHandler("play", () => togglePlay());
-    ms.setActionHandler("pause", () => togglePlay());
-    ms.setActionHandler("previoustrack", () => handlePrev());
-    ms.setActionHandler("nexttrack", () => handleNext());
+    ms.setActionHandler("play", () => live.current.togglePlay());
+    ms.setActionHandler("pause", () => live.current.togglePlay());
+    ms.setActionHandler("previoustrack", () => live.current.handlePrev());
+    ms.setActionHandler("nexttrack", () => live.current.handleNext());
     ms.setActionHandler("seekto", (details) => {
-      if (typeof details.seekTime === "number") seek(details.seekTime);
+      if (typeof details.seekTime === "number") live.current.seek(details.seekTime);
     });
     ms.setActionHandler("seekbackward", (details) => {
-      seek(Math.max(0, currentTime - (details.seekOffset ?? 10)));
+      live.current.seek(Math.max(0, live.current.currentTime - (details.seekOffset ?? 10)));
     });
     ms.setActionHandler("seekforward", (details) => {
-      seek(Math.min(duration || 0, currentTime + (details.seekOffset ?? 10)));
+      live.current.seek(Math.min(live.current.duration || 0, live.current.currentTime + (details.seekOffset ?? 10)));
     });
 
     return () => {
@@ -61,7 +66,7 @@ export function useMediaSession() {
         ms.setActionHandler("seekforward", null);
       } catch {/* noop */}
     };
-  }, [currentTrack?.id, currentTime, duration, togglePlay, handleNext, handlePrev, seek]);
+  }, [currentTrack?.id]);
 
   // Playback state
   useEffect(() => {

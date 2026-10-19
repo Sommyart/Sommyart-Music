@@ -1,4 +1,4 @@
-import { Play, Pause, Download, Heart, MoreVertical, ListMusic, CornerDownRight, Share2, Trash2 } from "lucide-react";
+import { Play, Pause, Download, Heart, MoreVertical, ListMusic, ListEnd, ListPlus, CornerDownRight, Share2, Trash2 } from "lucide-react";
 import { DownloadedBadge } from "@/components/DownloadCollectionButton";
 import { Track } from "@/lib/tracks";
 import { useState, useEffect } from "react";
@@ -6,6 +6,7 @@ import { extractCoverArt } from "@/lib/extractCoverArt";
 import { useDownloadContext } from "@/contexts/DownloadContext";
 import { useFavouritesContext } from "@/contexts/FavouritesContext";
 import { useMusicPlayerContext } from "@/contexts/MusicPlayerContext";
+import { usePlaylistPicker } from "@/contexts/PlaylistPickerContext";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "@/hooks/use-toast";
+import { shareTrack } from "@/lib/share";
 
 interface Props {
   track: Track;
@@ -26,7 +28,8 @@ export function TrackItem({ track, index, isActive, isPlaying, onPlay }: Props) 
   const [cover, setCover] = useState<string | null>(null);
   const { downloadTrack, removeDownload, isDownloaded, isDownloading } = useDownloadContext();
   const { isFavourite, toggleFavourite } = useFavouritesContext();
-  const { playNext, addToQueue } = useMusicPlayerContext();
+  const { playNext, playLast } = useMusicPlayerContext();
+  const { openPlaylistPicker } = usePlaylistPicker();
 
   useEffect(() => {
     extractCoverArt(track.audioUrl).then((c) => {
@@ -51,24 +54,7 @@ export function TrackItem({ track, index, isActive, isPlaying, onPlay }: Props) 
     toggleFavourite(track.id);
   };
 
-  const shareUrl = `${window.location.origin}/song/${track.id}`;
-
-  const handleShare = async () => {
-    const data = {
-      title: `${track.title} — ${track.artist}`,
-      text: `Listen to ${track.title} by ${track.artist} on Sommyart Music`,
-      url: shareUrl,
-    };
-    try {
-      if (navigator.share) await navigator.share(data);
-      else {
-        await navigator.clipboard.writeText(shareUrl);
-        toast({ title: "Link copied", description: shareUrl });
-      }
-    } catch {
-      /* share cancelled */
-    }
-  };
+  const handleShare = () => shareTrack(track);
 
   return (
     <div
@@ -126,12 +112,15 @@ export function TrackItem({ track, index, isActive, isPlaying, onPlay }: Props) 
             <MoreVertical size={16} />
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48">
+        <DropdownMenuContent align="end" className="w-52">
           <DropdownMenuItem onClick={() => { playNext(track); toast({ title: "Playing next", description: track.title }); }}>
             <CornerDownRight size={14} className="mr-2" /> Play next
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => { addToQueue(track); toast({ title: "Added to queue", description: track.title }); }}>
-            <ListMusic size={14} className="mr-2" /> Add to queue
+          <DropdownMenuItem onClick={() => { playLast(track); toast({ title: "Added to the end of the queue", description: track.title }); }}>
+            <ListEnd size={14} className="mr-2" /> Play last
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => openPlaylistPicker(track)}>
+            <ListPlus size={14} className="mr-2" /> Add to playlist
           </DropdownMenuItem>
           {downloaded ? (
             <DropdownMenuItem onClick={() => { removeDownload(track); toast({ title: "Removed from downloads", description: track.title }); }}>
