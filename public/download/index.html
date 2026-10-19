@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Get Sommyart Music for Android</title>
+<meta name="description" content="Download the Sommyart Music Android app. Play your music offline." />
+<meta name="theme-color" content="#060d1a" />
+<link rel="icon" href="/icons/icon-192.png" />
+<style>
+  :root { --bg:#060d1a; --card:#0d1a2e; --line:#1b3050; --text:#e8f4ff; --muted:#8aa3bf; --accent:#00d4ff; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+  main { max-width:480px; margin:0 auto; padding:32px 16px 48px; }
+  .logo { width:88px; height:88px; border-radius:22px; display:block; margin:0 auto 16px; box-shadow:0 0 28px rgba(0,212,255,.35); }
+  h1 { font-size:24px; text-align:center; margin:0 0 4px; }
+  .sub { text-align:center; color:var(--muted); margin:0 0 24px; }
+  .btn { display:block; width:100%; text-align:center; background:var(--accent); color:#04121f; font-weight:700; font-size:18px; padding:18px 16px; border-radius:16px; text-decoration:none; box-shadow:0 0 22px rgba(0,212,255,.35); }
+  .btn:active { transform:scale(.98); }
+  .meta { text-align:center; color:var(--muted); font-size:13px; margin:10px 0 28px; }
+  h2 { font-size:15px; letter-spacing:.06em; text-transform:uppercase; color:var(--accent); margin:0 0 12px; }
+  ol { margin:0 0 24px; padding:0; list-style:none; counter-reset:s; }
+  li { counter-increment:s; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 14px 14px 52px; margin-bottom:10px; position:relative; }
+  li::before { content:counter(s); position:absolute; left:14px; top:14px; width:26px; height:26px; border-radius:50%; background:var(--accent); color:#04121f; font-weight:700; display:grid; place-items:center; font-size:14px; }
+  .tip { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; color:var(--muted); font-size:14px; margin-bottom:10px; }
+  .tip b { color:var(--text); }
+  .copy { display:flex; gap:8px; margin-top:8px; }
+  .copy input { flex:1; min-width:0; background:#081426; color:var(--text); border:1px solid var(--line); border-radius:10px; padding:10px; font-size:13px; }
+  .copy button { background:transparent; color:var(--accent); border:1px solid var(--accent); border-radius:10px; padding:0 14px; font-size:14px; }
+</style>
+</head>
+<body>
+<main>
+  <img class="logo" src="/icons/icon-192.png" alt="Sommyart Music" />
+  <h1>Sommyart Music</h1>
+  <p class="sub">Android app. Play your music offline.</p>
+
+  <a id="dl" class="btn" href="https://github.com/Sommyart/Sommyart-Music/releases/download/android-latest/SommyartMusic.apk" download>Download for Android</a>
+  <p class="meta" id="meta">About 156 MB. Use Wi-Fi if you can.</p>
+
+  <h2>How to install</h2>
+  <ol>
+    <li>Tap <b>Download for Android</b> above. If Chrome says the file may be harmful, tap <b>Download anyway</b>. That message shows for any app that is not from the Play Store.</li>
+    <li>When it finishes, tap <b>Open</b> on the download notification, or open it from your <b>Files</b> or <b>Downloads</b> app.</li>
+    <li>If Android asks, tap <b>Settings</b> and switch on <b>Allow from this source</b> for Chrome, then go back.</li>
+    <li>Tap <b>Install</b>, then <b>Open</b>.</li>
+  </ol>
+
+  <div class="tip"><b>Download stops or fails?</b> Check you have about 400 MB of free space, stay on one network, and try again. Chrome will resume it from the Downloads list.</div>
+  <div class="tip"><b>Updating?</b> Install the new file over the old app. Your account and downloaded songs stay.</div>
+  <div class="tip">
+    <b>Prefer to send it to your phone?</b> Copy the link and paste it into WhatsApp or a browser on the phone.
+    <div class="copy"><input id="lnk" readonly /><button id="cp" type="button">Copy</button></div>
+  </div>
+</main>
+<script>
+  var a = document.getElementById("dl"), l = document.getElementById("lnk");
+  l.value = a.href;
+  document.getElementById("cp").onclick = function () {
+    try { navigator.clipboard.writeText(l.value); this.textContent = "Copied"; }
+    catch (e) { l.select(); }
+  };
+  // Show the real version and size if GitHub answers; the page works without it.
+  fetch("https://api.github.com/repos/Sommyart/Sommyart-Music/releases/tags/android-latest")
+    .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+    .then(function (rel) {
+      var f = (rel.assets || []).filter(function (x) { return x.name === "SommyartMusic.apk"; })[0];
+      if (!f) return;
+      var mb = Math.round(f.size / 1048576);
+      var v = (rel.assets.map(function (x) { return (x.name.match(/SommyartMusic-(\d+\.\d+\.\d+)\.apk/) || [])[1]; })
+        .filter(Boolean).sort(function (p, q) { return p.localeCompare(q, undefined, { numeric: true }); }).pop()) || "";
+      document.getElementById("meta").textContent = (v ? "Version " + v + ". " : "") + "About " + mb + " MB. Use Wi-Fi if you can.";
+    })
+    .catch(function () {});
+</script>
+</body>
+</html>
