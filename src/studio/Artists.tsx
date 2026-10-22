@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { ImagePlus, Loader2, Pencil, User } from "lucide-react";
+import { ImagePlus, Loader2, Pencil, Trash2, User } from "lucide-react";
 import { supabase, uploadFile, shrinkImage } from "./lib";
 
 type ArtistRow = {
@@ -123,11 +123,106 @@ function EditArtistDialog({
   );
 }
 
+/** Removes an artist together with every song and album that belongs to them. */
+function DeleteArtistDialog({
+  artist, onClose, onDeleted,
+}: { artist: ArtistRow; onClose: () => void; onDeleted: () => void }) {
+  const [info, setInfo] = useState<{ songs: number; albums: number; bundled: number; collabs: number } | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const [s, a, c] = await Promise.all([
+        supabase.from("songs").select("id,audio_url").eq("artist_id", artist.id),
+        supabase.from("albums").select("id").eq("artist_id", artist.id),
+        supabase.from("song_artists").select("song_id").eq("artist_id", artist.id),
+      ]);
+      const songs = s.data ?? [];
+      setInfo({
+        songs: songs.length,
+        albums: (a.data ?? []).length,
+        bundled: songs.filter((x: { audio_url: string }) => x.audio_url?.startsWith("/music/")).length,
+        collabs: (c.data ?? []).length,
+      });
+    })();
+  }, [artist.id]);
+
+  const remove = async () => {
+    setBusy(true);
+    try {
+      // Songs first, then albums, the sign-up request and finally the artist itself.
+      // Each query only runs when awaited, so the order below is the order they run in.
+      const steps: [string, PromiseLike<{ error: { message: string } | null }>][] = [
+        ["songs", supabase.from("songs").delete().eq("artist_id", artist.id)],
+        ["albums", supabase.from("albums").delete().eq("artist_id", artist.id)],
+        ["artist request", supabase.from("artist_applications").delete().eq("artist_id", artist.id)],
+        ["artist", supabase.from("artists").delete().eq("id", artist.id)],
+      ];
+      for (const [label, p] of steps) {
+        const { error } = await p;
+        if (error) throw new Error(`${label}: ${error.message}`);
+      }
+      toast.success(`Removed ${artist.name}`, { description: "The artist and their songs are gone." });
+      onDeleted();
+      onClose();
+    } catch (err: any) {
+      toast.error("Could not remove the artist", { description: err.message });
+      onDeleted(); // some songs may already be gone, so refresh the list
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && !busy && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Delete {artist.name}?</DialogTitle>
+          <DialogDescription>This cannot be undone.</DialogDescription>
+        </DialogHeader>
+        {!info ? (
+          <div className="py-6 flex justify-center"><Loader2 className="w-5 h-5 animate-spin text-primary" /></div>
+        ) : (
+          <div className="space-y-3 text-sm">
+            <p>
+              This permanently removes the artist, <b>{info.songs}</b> song{info.songs === 1 ? "" : "s"}
+              {info.albums ? <> and <b>{info.albums}</b> album{info.albums === 1 ? "" : "s"}</> : null}.
+              Followers lose the follow, and listeners will no longer see any of it.
+            </p>
+            {info.collabs > 0 && (
+              <p className="text-muted-foreground">
+                {artist.name} is featured on {info.collabs} song{info.collabs === 1 ? "" : "s"} by other artists. Those songs stay, only the feature credit is removed.
+              </p>
+            )}
+            {info.bundled > 0 && (
+              <p className="text-amber-400">
+                {info.bundled} of these songs are built into the app. Phones that already have the app installed may still show them.
+              </p>
+            )}
+            {artist.owner_user_id && (
+              <p className="text-muted-foreground">
+                This artist has their own account. The account stays, but they will be asked to apply again.
+              </p>
+            )}
+          </div>
+        )}
+        <div className="flex gap-2 pt-2">
+          <Button type="button" variant="secondary" className="flex-1" onClick={onClose} disabled={busy}>Cancel</Button>
+          <Button type="button" variant="destructive" className="flex-1" onClick={remove} disabled={busy || !info}>
+            {busy && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Delete artist
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function ArtistsPanel({ refreshKey, onChanged }: { refreshKey: number; onChanged: () => void }) {
   const [artists, setArtists] = useState<ArtistRow[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [edit, setEdit] = useState<ArtistRow | null>(null);
+  const [del, setDel] = useState<ArtistRow | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -149,6 +244,7 @@ export function ArtistsPanel({ refreshKey, onChanged }: { refreshKey: number; on
   return (
     <div className="space-y-3">
       {edit && <EditArtistDialog artist={edit} onClose={() => setEdit(null)} onSaved={onChanged} />}
+      {del && <DeleteArtistDialog artist={del} onClose={() => setDel(null)} onDeleted={onChanged} />}
       <h3 className="text-sm font-semibold tracking-wider">ARTISTS</h3>
       {artists.length === 0 && <p className="text-sm text-muted-foreground">No artists yet. They are created automatically when you publish a song.</p>}
       {artists.map((a) => (
@@ -166,10 +262,11 @@ export function ArtistsPanel({ refreshKey, onChanged }: { refreshKey: number; on
             <div className="text-xs text-muted-foreground line-clamp-1">{a.bio ? a.bio : "No description yet"}</div>
           </div>
           <button onClick={() => setEdit(a)} className="p-2 text-muted-foreground hover:text-primary" aria-label={`Edit ${a.name}`}><Pencil className="w-4 h-4" /></button>
+          <button onClick={() => setDel(a)} className="p-2 text-muted-foreground hover:text-destructive" aria-label={`Delete ${a.name}`}><Trash2 className="w-4 h-4" /></button>
         </div>
       ))}
       <p className="text-xs text-muted-foreground pt-1">
-        Tap the pencil to change an artist's picture, description or location. Names stay the same so songs keep matching.
+        Tap the pencil to change an artist's picture, description or location. Names stay the same so songs keep matching. Tap the bin to delete an artist and all their songs.
       </p>
     </div>
   );

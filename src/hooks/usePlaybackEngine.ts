@@ -331,7 +331,16 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
       if (isPlaying && audioEnabled) {
         errorSkipsRef.current = 0;
         audio.play().catch(() => {
-          /* autoplay blocked — user gesture required */
+          // Some phones refuse the first play() right after the source changes
+          // (the next song then loads but sits paused). Try again once the file
+          // is ready, so moving on to the next song does not stall.
+          const retry = () => {
+            audio.removeEventListener("canplay", retry);
+            if (cancelled || !isPlayingRef.current || !audio.paused) return;
+            audio.play().catch(() => {});
+          };
+          audio.addEventListener("canplay", retry);
+          window.setTimeout(retry, 1200);
         });
       } else if (!isPlaying) {
         audio.pause();
