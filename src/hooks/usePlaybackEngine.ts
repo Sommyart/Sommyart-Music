@@ -60,6 +60,8 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
   isPlayingRef.current = isPlaying;
   const volumeRef = useRef(1);
   volumeRef.current = volume;
+  const audioEnabledRef = useRef(audioEnabled);
+  audioEnabledRef.current = audioEnabled;
   // The first remote state we receive after launch must not switch Repeat One back on.
   const firstRemoteRef = useRef(true);
 
@@ -283,15 +285,34 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
       advanceRef.current(true);
     };
 
+    // The phone (or another app) can pause the audio without telling us, for
+    // example when the screen turns off or another app takes over the sound.
+    // The play button would then still say "playing" while nothing is heard, and
+    // you had to press pause and play to get going. Keep the button honest.
+    const onPause = () => {
+      if (!isPlayingRef.current || !audioEnabledRef.current) return;
+      const d = audio.duration;
+      const finished = audio.ended || (isFinite(d) && d > 1 && audio.currentTime >= d - 0.3);
+      if (finished) return; // the song simply ended; the "ended" handling moves on
+      // Give our own pause/skip logic a moment to run before treating it as outside.
+      window.setTimeout(() => {
+        if (isPlayingRef.current && audioEnabledRef.current && audio.paused && !audio.ended && audio.readyState >= 2) {
+          setIsPlaying(false);
+        }
+      }, 400);
+    };
+
     audio.addEventListener("timeupdate", onTime);
     audio.addEventListener("loadedmetadata", onMeta);
     audio.addEventListener("ended", onEnded);
     audio.addEventListener("error", onError);
+    audio.addEventListener("pause", onPause);
     return () => {
       audio.removeEventListener("timeupdate", onTime);
       audio.removeEventListener("loadedmetadata", onMeta);
       audio.removeEventListener("ended", onEnded);
       audio.removeEventListener("error", onError);
+      audio.removeEventListener("pause", onPause);
       window.clearInterval(poll);
       document.removeEventListener("visibilitychange", checkFinished);
       audio.pause();
@@ -331,17 +352,27 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
       if (isPlaying && audioEnabled) {
         errorSkipsRef.current = 0;
         audio.play().catch(() => {
-          // Some phones refuse the first play() right after the source changes
-          // (the next song then loads but sits paused). Try again once the file
-          // is ready, so moving on to the next song does not stall.
-          const retry = () => {
-            audio.removeEventListener("canplay", retry);
-            if (cancelled || !isPlayingRef.current || !audio.paused) return;
-            audio.play().catch(() => {});
-          };
-          audio.addEventListener("canplay", retry);
-          window.setTimeout(retry, 1200);
+          /* the watchdog below tries again */
         });
+        // Watchdog: some phones refuse or drop the play() that follows a source
+        // change (the next song loads but sits silent until you press pause then
+        // play). Check shortly after, wait while the file is still loading, push
+        // play again a few times, and only then show "paused" instead of lying.
+        let waits = 0;
+        let retries = 0;
+        const check = () => {
+          window.setTimeout(() => {
+            if (cancelled || !isPlayingRef.current || !audioEnabled) return;
+            if (!audio.paused || audio.ended) return; // it is playing, all good
+            if (audio.readyState < 2 && waits++ < 8) return check(); // still loading
+            if (retries++ < 3) {
+              audio.play().catch(() => {});
+              return check();
+            }
+            setIsPlaying(false);
+          }, 1500);
+        };
+        check();
       } else if (!isPlaying) {
         audio.pause();
       }
