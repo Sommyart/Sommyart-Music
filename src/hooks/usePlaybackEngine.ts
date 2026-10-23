@@ -67,6 +67,11 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
 
   // Position to seek to once the next media element is ready (restore/remote).
   const pendingSeekRef = useRef<number | null>(null);
+  // The address last given to the audio element. The element reports its own
+  // address in a rewritten form (full path, spaces turned into %20), so comparing
+  // against that made every pause or interruption look like a new song and
+  // restart it from the beginning.
+  const loadedUrlRef = useRef("");
   // Guards against error-driven infinite skipping.
   const errorSkipsRef = useRef(0);
   const restoredRef = useRef(false);
@@ -330,7 +335,8 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
     const remoteUrl = rawCurrent.audioUrl;
     const applySource = (url: string) => {
       if (cancelled || !audio) return;
-      if (audio.src !== url) {
+      if (loadedUrlRef.current !== url || !audio.src) {
+        loadedUrlRef.current = url;
         audio.src = url;
         audio.load();
         const seekTo = pendingSeekRef.current;
