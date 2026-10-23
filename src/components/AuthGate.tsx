@@ -34,14 +34,26 @@ export function AuthGate() {
   const [issuedCodes, setIssuedCodes] = useState<string[] | null>(null);
 
   useEffect(() => {
+    // A login that is still saved on the phone counts as signed in, even when it
+    // cannot be renewed right now (no internet, or a connection that is up but
+    // not carrying data). Only a login that is really gone brings up the window.
+    const hasSavedLogin = () => {
+      try {
+        return Object.keys(localStorage).some((k) => /^sb-.*-auth-token$/.test(k) && !!localStorage.getItem(k));
+      } catch {
+        return false;
+      }
+    };
+
     supabase.auth.getSession().then(({ data }) => {
-      if (!data.session) setOpen(true);
+      if (!data.session && !hasSavedLogin()) setOpen(true);
     });
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       // Don't auto-close while we're showing recovery codes the user must save.
-      if (!session) setOpen(true);
-      else if (!issuedCodes) setOpen(false);
+      if (!session) {
+        if (event === "SIGNED_OUT" || !hasSavedLogin()) setOpen(true);
+      } else if (!issuedCodes) setOpen(false);
     });
     return () => sub.subscription.unsubscribe();
   }, [issuedCodes]);
