@@ -18,6 +18,7 @@ import { useNewTrackNotifier } from "@/hooks/useNewTrackNotifier";
 import { useMediaSession } from "@/hooks/useMediaSession";
 import { useSwipeTabs } from "@/hooks/useSwipeTabs";
 import { UpdatePrompt } from "@/components/UpdatePrompt";
+import { OfflineBanner } from "@/components/layout/OfflineBanner";
 
 
 import { useNavigate } from "react-router-dom";
@@ -88,6 +89,7 @@ function AppShell() {
       </div>
 
       <PendingDestinationHandler />
+      <OfflineBanner />
       <MiniPlayer track={currentTrack} isPlaying={isPlaying} onTogglePlay={togglePlay} onNext={handleNext} onPrev={handlePrev} />
       <BottomNav />
     </>

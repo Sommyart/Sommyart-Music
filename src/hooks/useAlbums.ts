@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Track } from "@/lib/tracks";
+import { prefetchImages } from "@/lib/prefetchImages";
 
 export interface Album {
   id: string;
@@ -85,12 +86,12 @@ export function useAlbums() {
       .from("albums")
       .select("*, songs(id)")
       .order("released_at", { ascending: false });
-    setAlbums(
-      (data ?? []).map((a: any) => ({
-        ...mapAlbum(a),
-        trackCount: Array.isArray(a.songs) ? a.songs.length : 0,
-      }))
-    );
+    const list = (data ?? []).map((a: any) => ({
+      ...mapAlbum(a),
+      trackCount: Array.isArray(a.songs) ? a.songs.length : 0,
+    }));
+    setAlbums(list);
+    prefetchImages(list.map((a) => a.coverUrl));
     setLoading(false);
   }, []);
 

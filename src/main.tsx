@@ -46,3 +46,10 @@ createRoot(document.getElementById("root")!).render(
 );
 
 if (!isStudio) void registerServiceWorker();
+
+// Ask the phone to keep downloaded music and saved pictures even when it is short on space.
+try {
+  void navigator.storage?.persist?.();
+} catch {
+  /* not supported */
+}

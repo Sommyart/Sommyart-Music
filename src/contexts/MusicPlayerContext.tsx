@@ -2,6 +2,7 @@ import { createContext, useContext, ReactNode, useEffect, useMemo, useRef } from
 import { usePlaybackEngine } from "@/hooks/usePlaybackEngine";
 import { useSongsFromDB } from "@/hooks/useSongsFromDB";
 import { useDeviceSync } from "@/hooks/useDeviceSync";
+import { useOnline } from "@/hooks/useOnline";
 import { Track } from "@/lib/tracks";
 
 type BaseEngine = ReturnType<typeof usePlaybackEngine>;
@@ -31,10 +32,12 @@ const MusicPlayerContext = createContext<PlayerContextType | null>(null);
 export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   const { songs, allSongs, kosherTracks, loading, newestTrack, newestTracks, refetch } = useSongsFromDB();
   const sync = useDeviceSync();
+  const online = useOnline();
 
   // Only the device that currently owns the session renders audio. Playback is
   // handed over explicitly (device takeover) so two devices never play at once.
-  const audioEnabled = sync.isThisDeviceActive;
+  // With no internet nothing can take the session over, so this phone always plays.
+  const audioEnabled = sync.isThisDeviceActive || !online;
   const player = usePlaybackEngine(allSongs, audioEnabled);
 
   // ---------------- Apply incoming remote playback state ----------------

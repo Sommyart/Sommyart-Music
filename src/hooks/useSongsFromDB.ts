@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Track, tracks as staticTracks, kosherTracks as staticKosherTracks } from "@/lib/tracks";
 import { getAllTrackMeta } from "@/hooks/useOfflineDownloads";
 import { mapSong, SONG_SELECT } from "@/hooks/useAlbums";
+import { prefetchImages } from "@/lib/prefetchImages";
 
 const CATALOG_KEY = "sommyart_catalog_v1";
 
@@ -102,6 +103,7 @@ export function useSongsFromDB() {
           return !isNaN(ts) && now - ts <= ONE_WEEK_MS;
         });
         saveCatalog(mapped);
+        prefetchImages(mapped.map((t) => t.coverUrl));
         setSongs(merged);
         setNewestTrack(newest[0] || merged[0] || null);
         setNewestTracks(withinWeek.slice(0, 5));

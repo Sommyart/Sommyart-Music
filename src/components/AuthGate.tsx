@@ -15,11 +15,13 @@ import {
   InputOTPSlot,
 } from "@/components/ui/input-otp";
 import { toast } from "@/hooks/use-toast";
+import { useOnline } from "@/hooks/useOnline";
 import { Copy, Download, ShieldCheck } from "lucide-react";
 
 type Mode = "signin" | "signup" | "forgot";
 
 export function AuthGate() {
+  const online = useOnline();
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<Mode>("signin");
   const [username, setUsername] = useState("");
@@ -213,8 +215,10 @@ export function AuthGate() {
     forgot: "Enter your username, a recovery code, and a new 4-digit PIN.",
   };
 
+  // With no internet the sign-in window stays out of the way, so downloaded music
+  // can still be played and controlled. It returns when the connection does.
   return (
-    <Dialog open={open} onOpenChange={() => { /* gated */ }}>
+    <Dialog open={open && online} onOpenChange={() => { /* gated */ }}>
       <DialogContent
         className="sm:max-w-sm border-primary/30 bg-background/95 backdrop-blur"
         onInteractOutside={(e) => e.preventDefault()}
