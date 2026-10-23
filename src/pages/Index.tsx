@@ -7,6 +7,7 @@ import { AlbumShelf } from "@/components/album/AlbumShelf";
 import { ArtistShelf } from "@/components/album/ArtistShelf";
 import { SEO } from "@/components/SEO";
 import { NotificationBell } from "@/components/NotificationPrompt";
+import { UpdateBanner } from "@/components/UpdateBanner";
 
 import { useMusicPlayerContext } from "@/contexts/MusicPlayerContext";
 import { Track } from "@/lib/tracks";
@@ -92,6 +93,7 @@ const Index = () => {
         </div>
       </div>
 
+      <UpdateBanner />
 
       {/* Featured Picks Ad Banner — also features newest releases */}
       <AdBanner tracks={mainTracks} newReleases={newestTracks} onPlay={handlePlayTrack} />

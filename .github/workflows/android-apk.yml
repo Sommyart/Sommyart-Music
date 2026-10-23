@@ -69,6 +69,23 @@ jobs:
           name: SommyartMusic-1.0.${{ github.run_number }}
           path: out/SommyartMusic.apk
 
+      - name: Write release notes
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+        run: |
+          NOTE=$(printf '%s' "$COMMIT_MSG" | head -n1 | tr -d '\r' | cut -c1-140)
+          [ -z "$NOTE" ] && NOTE="Improvements and fixes"
+          {
+            echo "Latest Android build of Sommyart Music, version 1.0.${{ github.run_number }}."
+            echo
+            echo "What's new: $NOTE"
+            echo
+            echo 'Download **SommyartMusic.apk** below on your Android phone, open it, and allow'
+            echo '"Install unknown apps" for your browser if Android asks.'
+          } > out/release-notes.md
+          jq -n --argjson build ${{ github.run_number }} --arg notes "$NOTE" '{build: $build, notes: $notes}' > out/latest.json
+          cat out/release-notes.md out/latest.json
+
       - name: Publish to the "latest" download page
         uses: softprops/action-gh-release@v2
         with:
@@ -76,11 +93,8 @@ jobs:
           name: Sommyart Music for Android (latest)
           prerelease: false
           make_latest: true
-          body: |
-            Latest Android build of Sommyart Music, version 1.0.${{ github.run_number }}.
-
-            Download **SommyartMusic.apk** below on your Android phone, open it, and allow
-            "Install unknown apps" for your browser if Android asks.
+          body_path: out/release-notes.md
           files: |
             out/SommyartMusic.apk
             out/SommyartMusic-1.0.${{ github.run_number }}.apk
+            out/latest.json
