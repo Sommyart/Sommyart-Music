@@ -300,6 +300,8 @@ def selftest():
         got = " ".join(romanize(w) for w in src.split())
         print(f"normalise {src!r} -> {got!r}", "OK" if got == want else f"EXPECTED {want!r}")
     print("hebrew sample ->", repr(romanize("שלום")), "| cyrillic sample ->", repr(romanize("привет")), flush=True)
+    norm = "; ".join(f"{k} -> {' '.join(romanize(w) for w in k.split())}" for k in cases) + f" | hebrew {romanize('שלום')!r} | ge'ez-free check"
+    print(f"::notice title=text cleaning::{norm}")
 
     base = ("the lord is my shepherd I shall not want he makes me lie down in green pastures he leads me beside "
             "still waters he restores my soul").split()
@@ -330,6 +332,9 @@ def selftest():
     res = align(audio, "\n".join(lines))
     got = [w for ln in res["lines"] for w in ln["words"]]
     errs = np.array([abs(g["t"] - tr[0]) for g, tr in zip(got, truth)])
+    summary = (f"{len(words)} words, {len(audio) / SR:.0f}s | start error median {np.median(errs):.3f}s p90 {np.percentile(errs, 90):.3f}s "
+               f"max {errs.max():.3f}s | within 0.15s {np.mean(errs <= 0.15) * 100:.0f}% within 0.30s {np.mean(errs <= 0.30) * 100:.0f}%")
+    print(f"::notice title=selftest result::{summary}")
     print(f"start-time error: median {np.median(errs):.3f}s, 90th percentile {np.percentile(errs, 90):.3f}s, max {errs.max():.3f}s")
     print(f"within 0.15 s: {np.mean(errs <= 0.15) * 100:.0f}%   within 0.30 s: {np.mean(errs <= 0.30) * 100:.0f}%")
     print("first line:", json.dumps(res["lines"][0])[:300])
