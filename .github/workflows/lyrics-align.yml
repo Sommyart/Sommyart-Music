@@ -51,18 +51,16 @@ jobs:
 
       - name: Install tools
         if: steps.peek.outputs.go == 'true'
-        run: |
-          pip install torch==2.7.0 torchaudio==2.7.0 --index-url https://download.pytorch.org/whl/cpu
-          pip install numpy requests uroman
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq ffmpeg espeak-ng
+        run: bash tools/lyrics_align/install.sh
 
       - name: Remember the model between runs
         if: steps.peek.outputs.go == 'true'
         uses: actions/cache@v4
         with:
-          path: ~/.cache/torch
-          key: mms-fa-model-v1
+          path: |
+            ~/.cache/torch
+            ~/.cache/huggingface
+          key: lyric-models-v2
 
       - name: Test with a synthetic voice
         if: steps.peek.outputs.go == 'true' && inputs.selftest
