@@ -5,10 +5,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Clock, ImagePlus, Loader2, LogOut, Pencil, PauseCircle, User, XCircle } from "lucide-react";
+import { Clock, ImagePlus, Loader2, LogOut, Mic2, Pencil, PauseCircle, User, XCircle } from "lucide-react";
 import { supabase, Artist, Owner, shrinkImage, uploadFile } from "./lib";
 import { AlbumUpload, SingleUpload } from "./Uploads";
 import { EditSongDialog, SongRow, AlbumRow } from "./Editors";
+import { LyricsDialog } from "./Lyrics";
 
 export type Application = {
   id: string; user_id: string; artist_name: string; genre: string | null; description: string | null; image_url: string | null;
@@ -167,6 +168,7 @@ function MyTracks({ owner, artists, refreshKey, onChanged }: { owner: Owner; art
   const [albums, setAlbums] = useState<AlbumRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [edit, setEdit] = useState<SongRow | null>(null);
+  const [lyricsFor, setLyricsFor] = useState<SongRow | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -187,6 +189,7 @@ function MyTracks({ owner, artists, refreshKey, onChanged }: { owner: Owner; art
 
   return (
     <div className="space-y-2">
+      {lyricsFor && <LyricsDialog song={lyricsFor} onClose={() => setLyricsFor(null)} onSaved={onChanged} />}
       {edit && <EditSongDialog song={edit} albums={albums} artists={artists} owner={owner} onClose={() => setEdit(null)} onSaved={onChanged} />}
       <h3 className="text-sm font-semibold tracking-wider">YOUR TRACKS ({songs.length})</h3>
       {songs.length === 0 && <p className="text-sm text-muted-foreground">Nothing uploaded yet. Use Single or Album to publish your first track.</p>}
@@ -199,6 +202,7 @@ function MyTracks({ owner, artists, refreshKey, onChanged }: { owner: Owner; art
               {s.genre ? `${s.genre} · ` : ""}{s.album_id ? `${albumName(s.album_id) ?? "Album"} #${s.track_number ?? ""} · ` : ""}{new Date(s.uploaded_at).toLocaleDateString()}
             </div>
           </div>
+          <button onClick={() => setLyricsFor(s)} className="p-2 text-muted-foreground hover:text-primary" aria-label={`Lyrics for ${s.title}`}><Mic2 className="w-4 h-4" /></button>
           <button onClick={() => setEdit(s)} className="p-2 text-muted-foreground hover:text-primary" aria-label={`Edit ${s.title}`}><Pencil className="w-4 h-4" /></button>
         </div>
       ))}

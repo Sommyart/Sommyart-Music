@@ -5,10 +5,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Copy, Loader2, LogOut, Pencil, Trash2, AlertCircle, KeyRound } from "lucide-react";
+import { Copy, Loader2, LogOut, Mic2, Pencil, Trash2, AlertCircle, KeyRound } from "lucide-react";
 
 import { supabase, Artist, Owner } from "./lib";
 import { EditSongDialog, EditAlbumDialog } from "./Editors";
+import { LyricsDialog } from "./Lyrics";
 import { ArtistsPanel } from "./Artists";
 import { SingleUpload, AlbumUpload } from "./Uploads";
 import { RequestsPanel, usePendingCount } from "./Requests";
@@ -129,6 +130,7 @@ function Login({ onDone }: { onDone: () => void }) {
 function Library({ refreshKey, onChanged, artists }: { refreshKey: number; onChanged: () => void; artists: Artist[] }) {
   const [editSong, setEditSong] = useState<any | null>(null);
   const [editAlbum, setEditAlbum] = useState<any | null>(null);
+  const [lyricsSong, setLyricsSong] = useState<any | null>(null);
   const [songs, setSongs] = useState<any[]>([]);
   const [albums, setAlbums] = useState<any[]>([]);
   const [q, setQ] = useState("");
@@ -203,6 +205,7 @@ function Library({ refreshKey, onChanged, artists }: { refreshKey: number; onCha
   return (
     <div className="space-y-6">
       {editSong && <EditSongDialog song={editSong} albums={albums} artists={artists} onClose={() => setEditSong(null)} onSaved={onChanged} />}
+      {lyricsSong && <LyricsDialog song={lyricsSong} onClose={() => setLyricsSong(null)} onSaved={onChanged} />}
       {editAlbum && <EditAlbumDialog album={editAlbum} songs={songs} artists={artists} onClose={() => setEditAlbum(null)} onSaved={onChanged} />}
       <div className="grid grid-cols-2 gap-3">
         <div className="glass rounded-xl p-4"><div className="text-2xl font-bold text-primary">{songs.length}</div><div className="text-xs text-muted-foreground">songs in the app's library</div></div>
@@ -260,6 +263,7 @@ function Library({ refreshKey, onChanged, artists }: { refreshKey: number; onCha
                 {s.artist}{s.genre ? ` · ${s.genre}` : ""}{isBundled(s) ? " · built in" : ""}{s.album_id ? ` · ${albumName(s.album_id) ?? "Album"} #${s.track_number ?? ""}` : ""} · {new Date(s.uploaded_at).toLocaleDateString()}
               </div>
             </div>
+            <button onClick={() => setLyricsSong(s)} className="p-2 text-muted-foreground hover:text-primary" aria-label="Lyrics"><Mic2 className="w-4 h-4" /></button>
             <button onClick={() => setEditSong(s)} className="p-2 text-muted-foreground hover:text-primary" aria-label="Edit song"><Pencil className="w-4 h-4" /></button>
             <button onClick={() => delSong(s.id, s.title, isBundled(s))} className="p-2 text-muted-foreground hover:text-destructive" aria-label="Remove song"><Trash2 className="w-4 h-4" /></button>
           </div>
