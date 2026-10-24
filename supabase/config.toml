@@ -5,3 +5,9 @@ verify_jwt = false
 
 [functions.send-new-song-push]
 verify_jwt = false
+
+[functions.lyrics-request]
+verify_jwt = false
+
+[functions.lyrics-worker]
+verify_jwt = false
