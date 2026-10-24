@@ -126,6 +126,25 @@ def decode(path):
     return np.frombuffer(p.stdout, dtype=np.float32).copy()
 
 
+def isolate_vocals(path):
+    """Strip the instruments (Demucs 'htdemucs'), because the aligner listens for a voice and music confuses it."""
+    import torch
+    import torchaudio
+    from demucs.api import Separator
+
+    p = subprocess.run(
+        ["ffmpeg", "-nostdin", "-v", "error", "-i", path, "-ac", "2", "-ar", "44100", "-f", "f32le", "-"],
+        capture_output=True,
+    )
+    if p.returncode != 0:
+        raise RuntimeError("Could not read the audio file: " + p.stderr.decode(errors="ignore")[:150])
+    x = torch.from_numpy(np.frombuffer(p.stdout, dtype=np.float32).copy()).reshape(-1, 2).T.contiguous()
+    sep = Separator(model="htdemucs", device="cpu", shifts=0, progress=False)
+    _, stems = sep.separate_tensor(x, 44100)
+    vocals = stems["vocals"].mean(0, keepdim=True)
+    return torchaudio.functional.resample(vocals, 44100, SR)[0].numpy().astype(np.float32)
+
+
 def emissions(wave_np):
     """Log-probabilities per 20 ms frame, computed 30 s at a time (with 2 s of context on each side)."""
     import torch
@@ -275,9 +294,13 @@ def run_jobs():
                             raise RuntimeError("The audio file is too big")
                         f.write(chunk)
                 audio = decode(path)
-            if len(audio) / SR > MAX_SECONDS:
-                raise RuntimeError("Songs longer than 15 minutes are not supported yet")
+                if len(audio) / SR > MAX_SECONDS:
+                    raise RuntimeError("Songs longer than 15 minutes are not supported yet")
+                if os.environ.get("ISOLATE_VOCALS", "1") == "1":
+                    print("  separating vocals…", flush=True)
+                    audio = isolate_vocals(path)
             result = align(audio, job["lyrics_text"])
+            result["vocals_isolated"] = os.environ.get("ISOLATE_VOCALS", "1") == "1"
             call("complete", id=job["id"], result=result)
             print(f"  done · average confidence {result['avg_conf']}", flush=True)
             done += 1
