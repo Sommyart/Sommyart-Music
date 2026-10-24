@@ -192,6 +192,7 @@ def viterbi(lp, tokens):
 
 
 def align(wave_np, lyrics_text):
+    load_model()  # also sets up the letter table that text cleaning needs
     lines = parse_lines(lyrics_text)
     if not lines:
         raise RuntimeError("There are no lyrics to line up")
