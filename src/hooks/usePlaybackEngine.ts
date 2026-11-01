@@ -29,6 +29,17 @@ interface PlayContextArgs {
  * Owns the one and only <audio> element, the playback context, the manual
  * "Up Next" queue, shuffle/repeat modes and the position/duration state.
  */
+const BOOST_KEY = "sommyart.boost";
+/** Saved volume boost on this device: 1 (off) to 2 (200%). */
+function readBoost(): number {
+  try {
+    const v = parseFloat(localStorage.getItem(BOOST_KEY) || "1");
+    return v >= 1 && v <= 2 ? v : 1;
+  } catch {
+    return 1;
+  }
+}
+
 export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -46,6 +57,10 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
   const [repeat, setRepeatState] = useState<RepeatMode>("off");
   const [playbackRate, setPlaybackRateState] = useState(1);
   const [volume, setVolumeState] = useState(1);
+  // Volume boost above 100% (this device only, never synced to other devices).
+  const [boost, setBoostState] = useState(readBoost);
+  const [boostIssue, setBoostIssue] = useState<string | null>(null);
+  const [graphReady, setGraphReady] = useState(false);
   const [shuffleOrder, setShuffleOrder] = useState<number[] | null>(null);
   const [extractedCover, setExtractedCover] = useState<string | null>(null);
   const [unavailable, setUnavailable] = useState<Record<string, true>>({});
@@ -60,6 +75,8 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
   isPlayingRef.current = isPlaying;
   const volumeRef = useRef(1);
   volumeRef.current = volume;
+  const boostGraphRef = useRef<{ ctx: AudioContext; gain: GainNode; limiter: DynamicsCompressorNode } | null>(null);
+  const boostPendingRef = useRef<Promise<boolean | null> | null>(null);
   const audioEnabledRef = useRef(audioEnabled);
   audioEnabledRef.current = audioEnabled;
   // The first remote state we receive after launch must not switch Repeat One back on.
@@ -324,6 +341,103 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
       audio.src = "";
     };
   }, []);
+
+  // ---------- Volume boost (above 100%) ----------
+  // Past 100% the sound has to go through the browser's audio engine, which can only read a streamed song
+  // when its server allows it (CORS). We check that first, then reload the song once in that mode.
+  // Downloaded songs are local and always work. Once switched on, it stays on until the app restarts;
+  // at 100% it passes the sound through untouched.
+  const enableBoostGraph = useCallback((): Promise<boolean | null> => {
+    if (boostGraphRef.current) return Promise.resolve(true);
+    // A second request while the first is still checking waits for the same answer.
+    if (boostPendingRef.current) return boostPendingRef.current;
+    const run = buildBoostGraph().finally(() => {
+      boostPendingRef.current = null;
+    });
+    boostPendingRef.current = run;
+    return run;
+  }, []);
+
+  /** true = on, false = not possible here, null = no song loaded yet (try again shortly). */
+  const buildBoostGraph = async (): Promise<boolean | null> => {
+    const audio = audioRef.current;
+    if (!audio) return null;
+    const src = audio.currentSrc || audio.src;
+    if (!src) return null;
+    const AC: typeof AudioContext | undefined = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AC) {
+      setBoostIssue("This phone does not support volume boost.");
+      return false;
+    }
+    try {
+      const crossSite = !/^(blob|data):/.test(src) && new URL(src, location.href).origin !== location.origin;
+      if (crossSite) {
+        try {
+          await fetch(src, { method: "HEAD", mode: "cors" });
+        } catch {
+          setBoostIssue("Boost is not available for this streamed song. Download it, then boost works.");
+          return false;
+        }
+      }
+      const wasPlaying = !audio.paused;
+      const at = audio.currentTime;
+      audio.crossOrigin = "anonymous";
+      if (crossSite) {
+        audio.load();
+        const resume = () => {
+          audio.removeEventListener("loadedmetadata", resume);
+          try { audio.currentTime = at; } catch { /* noop */ }
+          if (wasPlaying) audio.play().catch(() => {});
+        };
+        audio.addEventListener("loadedmetadata", resume);
+      }
+      const ctx = new AC();
+      const source = ctx.createMediaElementSource(audio);
+      const gain = ctx.createGain();
+      const limiter = ctx.createDynamicsCompressor();
+      limiter.threshold.value = -2;
+      limiter.knee.value = 0;
+      limiter.attack.value = 0.002;
+      limiter.release.value = 0.12;
+      source.connect(gain);
+      gain.connect(limiter);
+      limiter.connect(ctx.destination);
+      audio.addEventListener("play", () => {
+        if (ctx.state === "suspended") ctx.resume().catch(() => {});
+      });
+      ctx.resume().catch(() => {});
+      boostGraphRef.current = { ctx, gain, limiter };
+      setGraphReady(true);
+      setBoostIssue(null);
+      return true;
+    } catch (e) {
+      console.error("Volume boost failed", e);
+      setBoostIssue("Volume boost could not start on this phone.");
+      return false;
+    }
+  };
+
+  useEffect(() => {
+    const g = boostGraphRef.current;
+    if (!g) return;
+    g.gain.gain.value = boost;
+    g.limiter.ratio.value = boost > 1 ? 20 : 1;
+  }, [boost, graphReady]);
+
+  // Switch the boost on as soon as there is a song playing (also after a restart with boost saved).
+  useEffect(() => {
+    if (boost <= 1 || !isPlaying || !audioEnabled || boostGraphRef.current) return;
+    let tries = 0;
+    let timer = 0;
+    const attempt = () => {
+      void enableBoostGraph().then((ok) => {
+        if (ok === null && tries++ < 8) timer = window.setTimeout(attempt, 400);
+        else if (ok === false && !boostGraphRef.current) setBoostState(1);
+      });
+    };
+    attempt();
+    return () => window.clearTimeout(timer);
+  }, [boost, isPlaying, audioEnabled, rawCurrent?.id, enableBoostGraph]);
 
   // ---------- Load / play the current track ----------
   // Downloaded tracks resolve to a local blob URL first, so playback works
@@ -633,6 +747,17 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
     if (audioRef.current) audioRef.current.volume = clamped;
   }, []);
 
+  const setBoost = useCallback((b: number) => {
+    const next = Math.round(Math.min(2, Math.max(1, b)) * 20) / 20;
+    setBoostState(next);
+    setBoostIssue(null);
+    try {
+      localStorage.setItem(BOOST_KEY, String(next));
+    } catch {
+      /* noop */
+    }
+  }, []);
+
   const setDisplayTime = useCallback((t: number) => setCurrentTime(t), []);
 
   const markUnavailable = useCallback(
@@ -809,6 +934,8 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
     repeat,
     playbackRate,
     volume,
+    boost,
+    boostIssue,
     muted,
     sleepTimer: sleep,
     sleepRemaining,
@@ -837,6 +964,7 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
     setRepeatValue,
     setPlaybackRate,
     setVolume,
+    setBoost,
     toggleMute,
     setSleepTimer,
     // internals for sync layer
