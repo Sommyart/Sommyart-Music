@@ -420,9 +420,11 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
   useEffect(() => {
     const g = boostGraphRef.current;
     if (!g) return;
-    g.gain.gain.value = boost;
-    g.limiter.ratio.value = boost > 1 ? 20 : 1;
-  }, [boost, graphReady]);
+    // The boost only counts while the volume itself is full (a lower volume set elsewhere wins).
+    const b = volume >= 0.999 ? boost : 1;
+    g.gain.gain.value = b;
+    g.limiter.ratio.value = b > 1 ? 20 : 1;
+  }, [boost, volume, graphReady]);
 
   // Switch the boost on as soon as there is a song playing (also after a restart with boost saved).
   useEffect(() => {

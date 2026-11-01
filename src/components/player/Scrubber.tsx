@@ -14,6 +14,8 @@ interface Props {
   /** Arrow key step as a fraction of the full range. */
   keyStep?: number;
   disabled?: boolean;
+  /** Optional tick mark on the track, 0 to 1 (for example where "100%" sits on a boost slider). */
+  marker?: number;
   className?: string;
 }
 
@@ -21,7 +23,7 @@ interface Props {
  * Touch, mouse and keyboard friendly slider used for the seek bar and the volume.
  * Drag anywhere on it, arrow keys nudge it, and screen readers hear a real slider.
  */
-export function Scrubber({ value, onCommit, onPreview, live, label, valueText, keyStep = 0.05, disabled, className }: Props) {
+export function Scrubber({ value, onCommit, onPreview, live, label, valueText, keyStep = 0.05, disabled, marker, className }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<number | null>(null);
   const shown = drag ?? Math.min(1, Math.max(0, value || 0));
@@ -98,6 +100,9 @@ export function Scrubber({ value, onCommit, onPreview, live, label, valueText, k
     >
       <div className={cn("relative w-full rounded-full bg-secondary transition-[height] duration-150", drag !== null ? "h-2" : "h-1.5 group-hover:h-2")}>
         <div className="absolute inset-y-0 left-0 rounded-full bg-primary neon-glow" style={{ width: `${shown * 100}%` }} />
+        {marker != null && (
+          <div className="absolute top-1/2 w-0.5 h-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-foreground/60" style={{ left: `${marker * 100}%` }} aria-hidden="true" />
+        )}
         <div
           className={cn(
             "absolute top-1/2 w-4 h-4 rounded-full bg-primary neon-glow transition-transform duration-150",
