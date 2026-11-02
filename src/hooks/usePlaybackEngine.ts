@@ -273,6 +273,9 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
     // One advance per finished song, however many signals report the end.
     let endedLock = false;
     const fireEnded = () => {
+      // Only the device that is playing moves on. A device just showing another
+      // device's song must wait for it to say what is next, or the two fight.
+      if (!audioEnabledRef.current) return;
       if (endedLock) return;
       endedLock = true;
       window.setTimeout(() => {
@@ -295,7 +298,7 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
     document.addEventListener("visibilitychange", checkFinished);
     const onError = () => {
       const err = audio.error;
-      if (!audio.src) return;
+      if (!audio.src || !audioEnabledRef.current) return;
       console.error("Audio error", { code: err?.code, src: audio.src });
       errorSkipsRef.current += 1;
       if (errorSkipsRef.current > 5) {

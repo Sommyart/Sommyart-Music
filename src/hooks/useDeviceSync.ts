@@ -17,6 +17,8 @@ export interface DeviceRow {
 export interface PlaybackStateRow {
   user_id: string;
   song_id: string | null;
+  /** Any track id, including songs bundled with the app (song_id can only hold database ids). */
+  track_id: string | null;
   position_seconds: number;
   is_playing: boolean;
   playback_rate: number;
@@ -36,6 +38,14 @@ export interface PlaybackStateRow {
 }
 
 
+
+/** True when `a` was written after `b` (the version number is only a tie-break, it can restart). */
+function newer(a: PlaybackStateRow, b: PlaybackStateRow): boolean {
+  const ta = Date.parse(a.updated_at);
+  const tb = Date.parse(b.updated_at);
+  if (!isNaN(ta) && !isNaN(tb) && ta !== tb) return ta > tb;
+  return a.version >= b.version;
+}
 
 function detectKind(): string {
   const ua = navigator.userAgent.toLowerCase();
@@ -152,15 +162,24 @@ export function useDeviceSync() {
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
-    (async () => {
+    const load = async () => {
       const [{ data: devs }, { data: pb }] = await Promise.all([
         supabase.from("devices").select("*").eq("user_id", userId).order("last_seen_at", { ascending: false }),
         supabase.from("playback_state").select("*").eq("user_id", userId).maybeSingle(),
       ]);
       if (cancelled) return;
       if (devs) setDevices(devs as DeviceRow[]);
-      if (pb) setPlayback(pb as PlaybackStateRow);
-    })();
+      // Never let an older copy replace a newer one that arrived live in the meantime.
+      if (pb) setPlayback((prev) => (!prev || newer(pb as PlaybackStateRow, prev) ? (pb as PlaybackStateRow) : prev));
+    };
+    load();
+
+    // A phone can miss live updates while the screen is off or the connection drops.
+    // Catch up as soon as the app is visible or back online, and whenever the live link reconnects.
+    const onVisible = () => { if (document.visibilityState === "visible") load(); };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("online", load);
+    window.addEventListener("focus", load);
 
     const channel = supabase
       .channel(`sync-${userId}`)
@@ -179,10 +198,15 @@ export function useDeviceSync() {
         if (payload.eventType === "DELETE") setPlayback(null);
         else setPlayback(payload.new as PlaybackStateRow);
       })
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") load();
+      });
 
     return () => {
       cancelled = true;
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("online", load);
+      window.removeEventListener("focus", load);
       supabase.removeChannel(channel);
     };
   }, [userId]);
@@ -198,13 +222,14 @@ export function useDeviceSync() {
     async (patch: Partial<Omit<PlaybackStateRow, "user_id" | "version" | "updated_at">>) => {
       if (!userId || !device) return;
       const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      const rawSongId = patch.song_id ?? playback?.song_id ?? null;
-      // playback_state.song_id is uuid — legacy/static tracks with short ids
-      // (e.g. "2", "k2") would 22P02. Drop them silently instead of crashing.
+      const rawSongId = patch.song_id ?? playback?.track_id ?? playback?.song_id ?? null;
+      // playback_state.song_id is uuid, so songs bundled with the app (ids like "2" or "k2")
+      // cannot go there (22P02). Their id is kept in track_id so other devices still know the song.
       const song_id = rawSongId && UUID_RE.test(rawSongId) ? rawSongId : null;
       const next = {
         user_id: userId,
         song_id,
+        track_id: rawSongId,
         position_seconds: patch.position_seconds ?? playback?.position_seconds ?? 0,
         is_playing: patch.is_playing ?? playback?.is_playing ?? false,
         playback_rate: patch.playback_rate ?? playback?.playback_rate ?? 1,

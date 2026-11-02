@@ -40,6 +40,9 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   const audioEnabled = sync.isThisDeviceActive || !online;
   const player = usePlaybackEngine(allSongs, audioEnabled);
 
+  // The last state this device sent or received, so a state it just applied is not sent straight back.
+  const lastPushKeyRef = useRef<string>("");
+
   // ---------------- Apply incoming remote playback state ----------------
   const lastAppliedVersion = useRef<number>(-1);
   const applyingRemoteRef = useRef<boolean>(false);
@@ -56,9 +59,23 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       : 0;
     const rate = Number(pb.playback_rate) || 1;
 
+    const songId = pb.track_id ?? pb.song_id;
+    // What the push effect below would compute for this same state: do not echo it back.
+    lastPushKeyRef.current = [
+      songId,
+      pb.is_playing,
+      rate,
+      pb.shuffle,
+      pb.repeat_mode,
+      pb.context_type,
+      pb.context_id,
+      pb.context_index,
+      Array.isArray(pb.queue) ? (pb.queue as string[]).join(",") : "",
+    ].join("|");
+
     applyingRemoteRef.current = true;
     player.applyRemoteState({
-      songId: pb.song_id,
+      songId,
       positionSeconds: (Number(pb.position_seconds) || 0) + elapsed * rate,
       isPlaying: pb.is_playing,
       playbackRate: rate,
@@ -81,7 +98,6 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   // ---------------- Push meaningful local changes ----------------
   // Position is NOT written on every tick — only on transport/queue changes
   // plus a slow heartbeat while this device owns playback.
-  const lastPushKeyRef = useRef<string>("");
   useEffect(() => {
     if (!sync.device) return;
     if (applyingRemoteRef.current) return;

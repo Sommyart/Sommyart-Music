@@ -196,6 +196,7 @@ export type Database = {
           repeat_mode: string
           shuffle: boolean
           song_id: string | null
+          track_id: string | null
           updated_at: string
           updated_by_device: string | null
           user_id: string
@@ -215,6 +216,7 @@ export type Database = {
           repeat_mode?: string
           shuffle?: boolean
           song_id?: string | null
+          track_id?: string | null
           updated_at?: string
           updated_by_device?: string | null
           user_id: string
@@ -234,6 +236,7 @@ export type Database = {
           repeat_mode?: string
           shuffle?: boolean
           song_id?: string | null
+          track_id?: string | null
           updated_at?: string
           updated_by_device?: string | null
           user_id?: string
