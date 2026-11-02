@@ -41,30 +41,22 @@ async function openAndPaste(text: string) {
   return { onSaved, onClose };
 }
 
-describe("LyricsDialog with timestamps", () => {
-  it("uses pasted times without calling the worker, and saves them", async () => {
-    const { onSaved } = await openAndPaste("[00:00.00] (Intro)\n[00:08.06] First line\n[00:11.45] Second line\n[01:00.23] Third line");
-    expect(await screen.findByText(/Found times on 3 of 3 lines/)).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: /Use my times/ }));
-    expect(await screen.findByText(/Using the times you pasted/)).toBeTruthy();
-    expect(invoke).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: /Save lyrics/ }));
-    await waitFor(() => expect(onSaved).toHaveBeenCalled());
-    expect(updates[0].lyrics).toEqual([
-      { t: 8.06, text: "First line" }, { t: 11.45, text: "Second line" }, { t: 60.23, text: "Third line" },
-    ]);
-  });
-
-  it("sends clean text to the worker when there are no times", async () => {
-    await openAndPaste("[Verse 1]\nfirst line here\nsecond line here");
+describe("LyricsDialog", () => {
+  it("removes pasted times and still asks for automatic timing", async () => {
+    await openAndPaste("[00:00.00] (Intro)\n[00:08.06] First line here\n[00:11.45] Second line here");
+    expect(await screen.findByText(/are ignored/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Use my times/ })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /Generate timing/ }));
     await waitFor(() => expect(invoke).toHaveBeenCalled());
-    expect((invoke.mock.calls[0] as any)[1].body.text).toContain("first line here");
+    const sent = (invoke.mock.calls[0] as any)[1].body.text as string;
+    expect(sent).toContain("First line here");
+    expect(sent).not.toMatch(/\[00:/);
   });
 
-  it("flags lines that had no time in a mixed paste", async () => {
-    await openAndPaste("[00:10.00] one\ntwo\n[00:20.00] three");
-    fireEvent.click(screen.getByRole("button", { name: /Use my times/ }));
-    expect(await screen.findByText(/had no time in your paste/)).toBeTruthy();
+  it("sends plain lyrics unchanged", async () => {
+    await openAndPaste("first line here\nsecond line here");
+    fireEvent.click(screen.getByRole("button", { name: /Generate timing/ }));
+    await waitFor(() => expect(invoke).toHaveBeenCalled());
+    expect((invoke.mock.calls[0] as any)[1].body.text).toBe("first line here\nsecond line here");
   });
 });

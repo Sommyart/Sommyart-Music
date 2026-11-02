@@ -6,11 +6,9 @@ import { toast } from "sonner";
 import { AlertTriangle, Loader2, Minus, Pause, Play, Plus, Wand2 } from "lucide-react";
 import { supabase } from "./lib";
 import type { SongRow } from "./Editors";
-import { parseLyrics } from "./lrc";
+import { cleanLyrics } from "./lrc";
 
 type ResultLine = { text: string; t: number; end?: number; conf?: number };
-/** Where the timing came from: the times the artist pasted, or the automatic worker. */
-type Source = "timestamps" | "auto";
 type Job = {
   id: string; status: "pending" | "processing" | "done" | "failed"; created_at: string;
   error: string | null; result: { lines: ResultLine[]; avg_conf?: number; audio_seconds?: number } | null;
@@ -42,7 +40,6 @@ export function LyricsDialog({ song, onClose, onSaved }: { song: SongRow | null;
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [lines, setLines] = useState<ResultLine[] | null>(null);
-  const [source, setSource] = useState<Source>("auto");
   const [time, setTime] = useState(0);
   const [playing, setPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -59,7 +56,7 @@ export function LyricsDialog({ song, onClose, onSaved }: { song: SongRow | null;
   // First load: current lyrics, latest job.
   useEffect(() => {
     if (!song) return;
-    setLoaded(false); setLines(null); setSource("auto"); setText(""); setJob(null);
+    setLoaded(false); setLines(null); setText(""); setJob(null);
     let cancelled = false;
     (async () => {
       const { data } = await supabase.from("songs").select("lyrics").eq("id", song.id).maybeSingle();
@@ -69,7 +66,7 @@ export function LyricsDialog({ song, onClose, onSaved }: { song: SongRow | null;
       setText(cur.map((l) => l.text).join("\n"));
       const j = await loadJob();
       if (cancelled) return;
-      if (j?.status === "done" && j.result?.lines?.length) { setSource("auto"); setLines(j.result.lines.map((l) => ({ ...l }))); }
+      if (j?.status === "done" && j.result?.lines?.length) setLines(j.result.lines.map((l) => ({ ...l })));
       setLoaded(true);
     })();
     return () => { cancelled = true; };
@@ -81,7 +78,7 @@ export function LyricsDialog({ song, onClose, onSaved }: { song: SongRow | null;
     if (!active) return;
     const id = setInterval(async () => {
       const j = await loadJob();
-      if (j?.status === "done" && j.result?.lines?.length) { setSource("auto"); setLines(j.result.lines.map((l) => ({ ...l }))); }
+      if (j?.status === "done" && j.result?.lines?.length) setLines(j.result.lines.map((l) => ({ ...l })));
     }, 6000);
     return () => clearInterval(id);
   }, [active, loadJob]);
@@ -97,20 +94,14 @@ export function LyricsDialog({ song, onClose, onSaved }: { song: SongRow | null;
     return () => { a.pause(); a.src = ""; audioRef.current = null; };
   }, [song]);
 
-  const parsed = useMemo(() => parseLyrics(text), [text]);
+  const cleaned = useMemo(() => cleanLyrics(text), [text]);
 
   if (!song) return null;
 
   const generate = async () => {
-    // Pasted times are used exactly as they are, no worker needed.
-    if (parsed.mode === "timestamps") {
-      setSource("timestamps");
-      setLines(parsed.lines.map((l) => ({ text: l.text, t: l.t, conf: l.guess ? 0.2 : 1 })));
-      return;
-    }
     setBusy(true);
     try {
-      const r = await requestJob(song.id, parsed.cleanText);
+      const r = await requestJob(song.id, cleaned.cleanText);
       toast.success(r.started ? "Timing started" : "Timing queued", {
         description: r.started ? "This usually takes a few minutes." : "It will be picked up shortly.",
       });
@@ -144,7 +135,7 @@ export function LyricsDialog({ song, onClose, onSaved }: { song: SongRow | null;
       const out = lines.map((l) => ({ t: Math.round(l.t * 100) / 100, text: l.text })).sort((a, b) => a.t - b.t);
       const { error } = await supabase.from("songs").update({ lyrics: out }).eq("id", song.id);
       if (error) throw new Error(error.message);
-      if (job && source === "auto") await supabase.from("lyric_jobs").delete().eq("id", job.id);
+      if (job) await supabase.from("lyric_jobs").delete().eq("id", job.id);
       toast.success("Lyrics saved", { description: `${out.length} lines are now live in the app.` });
       onSaved();
       onClose();
@@ -156,8 +147,8 @@ export function LyricsDialog({ song, onClose, onSaved }: { song: SongRow | null;
   };
 
   const discard = async () => {
-    if (job && source === "auto") { await supabase.from("lyric_jobs").delete().eq("id", job.id); setJob(null); }
-    setLines(null);
+    if (job) await supabase.from("lyric_jobs").delete().eq("id", job.id);
+    setLines(null); setJob(null);
   };
 
   const activeIdx = lines ? lines.reduce((acc, l, i) => (l.t <= time + 0.05 ? i : acc), -1) : -1;
@@ -189,9 +180,7 @@ export function LyricsDialog({ song, onClose, onSaved }: { song: SongRow | null;
         {loaded && !active && lines && (
           <div className="space-y-3">
             <div className="glass rounded-xl p-3 text-sm space-y-1">
-              <div className="font-medium">
-                {source === "timestamps" ? "Using the times you pasted. Check them, then save" : "Check the timing, then save"}
-              </div>
+              <div className="font-medium">Check the timing, then save</div>
               <p className="text-muted-foreground text-xs">
                 Tap a line to hear it. Use − and + to move a line by a tenth of a second.
                 {savedCount > 0 && " Saving replaces the lyrics this song has now."}
@@ -199,9 +188,7 @@ export function LyricsDialog({ song, onClose, onSaved }: { song: SongRow | null;
               {doubtful > 0 && (
                 <p className="text-xs flex items-start gap-1 text-amber-500">
                   <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-                  {source === "timestamps"
-                    ? `${doubtful} line${doubtful > 1 ? "s" : ""} had no time in your paste, so I placed ${doubtful > 1 ? "them" : "it"} between the lines around ${doubtful > 1 ? "them" : "it"}. Please check ${doubtful > 1 ? "them" : "it"}.`
-                    : `${doubtful} line${doubtful > 1 ? "s" : ""} marked “check” may not match the singing. This marking is a rough guide and has not been tested on real songs yet.`}
+                  {doubtful} line{doubtful > 1 ? "s" : ""} marked “check” may not match the singing. This marking is a rough guide and has not been tested on real songs yet.
                 </p>
               )}
             </div>
@@ -255,18 +242,9 @@ export function LyricsDialog({ song, onClose, onSaved }: { song: SongRow | null;
               placeholder={"Paste the lyrics here, one line per row.\n\nLabels like [Chorus] are ignored."}
               className="text-sm"
             />
-            {parsed.mode === "timestamps" ? (
-              <p className="text-xs text-primary">
-                Found times on {parsed.stamped} of {parsed.total} lines. They will be used as the timing, and you can still fix any line before saving.
-                {parsed.guessed > 0 && ` ${parsed.guessed} line${parsed.guessed > 1 ? "s have" : " has"} no time and will be placed between the lines around ${parsed.guessed > 1 ? "them" : "it"}.`}
-              </p>
-            ) : parsed.stamped > 0 ? (
-              <p className="text-xs text-amber-500">
-                Only {parsed.stamped} of {parsed.total} lines have times, so they are ignored and the timing is worked out automatically.
-              </p>
-            ) : (
+            {cleaned.stamped > 0 && (
               <p className="text-xs text-muted-foreground">
-                No times found, so the timing will be worked out automatically. Lines like [00:08.06] at the start are used as they are.
+                Times like [00:08.06] on {cleaned.stamped} line{cleaned.stamped > 1 ? "s" : ""} are ignored. The timing is always worked out from the song.
               </p>
             )}
             <p className="text-xs text-muted-foreground">
@@ -274,9 +252,9 @@ export function LyricsDialog({ song, onClose, onSaved }: { song: SongRow | null;
             </p>
             <div className="flex gap-2">
               <Button type="button" variant="secondary" className="flex-1" onClick={onClose} disabled={busy}>Close</Button>
-              <Button type="button" className="flex-1" onClick={generate} disabled={busy || (parsed.mode === "auto" && parsed.cleanText.length < 5)}>
+              <Button type="button" className="flex-1" onClick={generate} disabled={busy || cleaned.cleanText.length < 5}>
                 {busy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Wand2 className="w-4 h-4 mr-2" />}
-                {parsed.mode === "timestamps" ? "Use my times" : "Generate timing"}
+                Generate timing
               </Button>
             </div>
           </div>
