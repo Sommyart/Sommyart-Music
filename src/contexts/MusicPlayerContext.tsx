@@ -53,6 +53,9 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     // state would be marked as applied and never shown. Wait for the list.
     if (loading) return;
     if (pb.version <= lastAppliedVersion.current) return;
+    // Opening the app must never start music by itself: the first state seen after launch is shown paused
+    // when this device is the one that would play it.
+    const firstAfterLaunch = lastAppliedVersion.current === -1;
     lastAppliedVersion.current = pb.version;
     if (pb.updated_by_device === sync.device.id) return; // our own echo
 
@@ -80,7 +83,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     player.applyRemoteState({
       songId,
       positionSeconds: (Number(pb.position_seconds) || 0) + elapsed * rate,
-      isPlaying: pb.is_playing,
+      isPlaying: pb.is_playing && !(firstAfterLaunch && pb.active_device_id === sync.device.id),
       playbackRate: rate,
       shuffle: pb.shuffle,
       repeat: pb.repeat_mode,

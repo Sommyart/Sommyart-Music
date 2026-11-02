@@ -28,6 +28,7 @@ function Probe() {
   return (
     <div>
       <span data-testid="title">{p.currentTrack?.title ?? "none"}</span>
+      <span data-testid="playing">{String(p.isPlaying)}</span>
       <span data-testid="time">{Math.round(p.currentTime)}</span>
     </div>
   );
@@ -105,5 +106,20 @@ describe("opening the app while another device plays", () => {
     act(() => { setSync(state({ version: 5, song_id: null, track_id: "k2", context_index: 1 })); });
     rerender(<MusicPlayerProvider><Probe /></MusicPlayerProvider>);
     expect(screen.getByTestId("title").textContent).toBe("Baruch Hashem Adonai");
+  });
+});
+
+describe("launching the app", () => {
+  it("does not start music by itself when playback was handed to this device", () => {
+    setSync(state({ version: 9, song_id: MID, track_id: MID, active_device_id: phone.id, updated_by_device: pcId, is_playing: true }));
+    render(<MusicPlayerProvider><Probe /></MusicPlayerProvider>);
+    expect(screen.getByTestId("title").textContent).toBe("Midnight on Your Skin");
+    expect(screen.getByTestId("playing").textContent).toBe("false");
+  });
+
+  it("still shows another device as playing", () => {
+    setSync(state({ version: 9, song_id: MID, track_id: MID, is_playing: true }));
+    render(<MusicPlayerProvider><Probe /></MusicPlayerProvider>);
+    expect(screen.getByTestId("playing").textContent).toBe("true");
   });
 });
