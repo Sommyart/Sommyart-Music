@@ -92,10 +92,17 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
   // Guards against error-driven infinite skipping.
   const errorSkipsRef = useRef(0);
   const restoredRef = useRef(false);
+  // The song list from the database arrives a moment after launch. Until the song you were last
+  // playing can be found, show nothing (rather than the first song of the bundled list) and do not
+  // overwrite the saved session.
+  const [hadSaved] = useState(() => !!loadPersisted()?.currentTrackId);
+  const [restorePending, setRestorePending] = useState(hadSaved);
+  const persistReadyRef = useRef(!hadSaved);
 
   const contextTracks = context.tracks.length ? context.tracks : library;
-  const rawCurrent =
-    source === "queue" ? queueTrack : contextTracks[contextIndex] ?? null;
+  const rawCurrent = restorePending
+    ? null
+    : source === "queue" ? queueTrack : contextTracks[contextIndex] ?? null;
 
   // ---------- Cover art enrichment ----------
   useEffect(() => {
@@ -786,6 +793,10 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
       contextTrackIds?: string[];
       contextIndex?: number;
     }) => {
+      // Another device's state is newer than anything saved here.
+      restoredRef.current = true;
+      persistReadyRef.current = true;
+      setRestorePending(false);
       const byId = new Map(library.map((t) => [t.id, t]));
       if (s.contextTrackIds && s.contextTrackIds.length) {
         const tracks = s.contextTrackIds.map((id) => byId.get(id)).filter(Boolean) as Track[];
@@ -845,10 +856,14 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
   // ---------- Restore persisted session (never auto-plays) ----------
   useEffect(() => {
     if (restoredRef.current || !library.length) return;
-    restoredRef.current = true;
     const saved = loadPersisted();
-    if (!saved) return;
     const byId = new Map(library.map((t) => [t.id, t]));
+    // Wait for the song that was playing to be in the list (the database list loads after launch).
+    if (saved?.currentTrackId && !byId.has(saved.currentTrackId)) return;
+    restoredRef.current = true;
+    persistReadyRef.current = true;
+    setRestorePending(false);
+    if (!saved) return;
     const tracks = (saved.contextTrackIds || [])
       .map((id) => byId.get(id))
       .filter(Boolean) as Track[];
@@ -879,9 +894,24 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
     // Deliberately does NOT set isPlaying — browsers block autoplay.
   }, [library.length]);
 
+  // If the song is never found (for example it was deleted), or you start something else first,
+  // stop waiting for the old session.
+  useEffect(() => {
+    if (!restorePending) return;
+    const giveUp = () => {
+      restoredRef.current = true;
+      persistReadyRef.current = true;
+      setRestorePending(false);
+    };
+    const id = window.setTimeout(giveUp, 10_000);
+    if (isPlaying) giveUp();
+    return () => window.clearTimeout(id);
+  }, [restorePending, isPlaying]);
+
   // ---------- Persist (throttled: only meaningful changes + position every 5s) ----------
   const lastSaveRef = useRef(0);
   useEffect(() => {
+    if (!persistReadyRef.current) return;
     const now = Date.now();
     const meaningful = true;
     if (!meaningful) return;

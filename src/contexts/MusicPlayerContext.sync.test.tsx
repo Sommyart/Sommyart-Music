@@ -8,13 +8,13 @@ const K2 = kosherTracks.find((t) => t.id === "k2")!;
 const mk = (id: string, title: string) => ({ id, title, artist: "A", audioUrl: `/music/${title}.mp3`, coverUrl: "/x.png" });
 const LIB = [mk(MID, "Midnight on Your Skin"), mk(OTHER, "Other Song"), K2];
 
-const { sync } = vi.hoisted(() => ({ sync: { current: null as any } }));
+const { sync, listState } = vi.hoisted(() => ({ sync: { current: null as any }, listState: { loading: false } }));
 
 vi.mock("@/hooks/useDeviceSync", () => ({ useDeviceSync: () => sync.current }));
 vi.mock("@/hooks/useOnline", () => ({ useOnline: () => true }));
 vi.mock("@/hooks/useSongsFromDB", () => ({
   useSongsFromDB: () => ({
-    songs: LIB, allSongs: LIB, kosherTracks: [], loading: false, newestTrack: null, newestTracks: [], refetch: async () => {},
+    songs: LIB, allSongs: LIB, kosherTracks: [], loading: listState.loading, newestTrack: null, newestTracks: [], refetch: async () => {},
   }),
 }));
 vi.mock("@/integrations/supabase/client", () => ({
@@ -55,6 +55,7 @@ function setSync(playback: any, pushState = vi.fn()) {
 }
 
 beforeEach(() => {
+  listState.loading = false;
   HTMLMediaElement.prototype.pause = () => {};
   HTMLMediaElement.prototype.play = () => Promise.resolve();
   HTMLMediaElement.prototype.load = () => {};
@@ -90,5 +91,19 @@ describe("a phone that only shows what the PC plays", () => {
     rerender(<MusicPlayerProvider><Probe /></MusicPlayerProvider>);
     expect(screen.getByTestId("title").textContent).toBe("Baruch Hashem Adonai");
     expect(push).not.toHaveBeenCalled();
+  });
+});
+
+describe("opening the app while another device plays", () => {
+  it("waits for the song list instead of dropping the update", async () => {
+    listState.loading = true;
+    setSync(state({ version: 5, song_id: null, track_id: "k2", context_index: 1 }));
+    const { rerender } = render(<MusicPlayerProvider><Probe /></MusicPlayerProvider>);
+    // List still loading: nothing applied yet.
+    expect(screen.getByTestId("title").textContent).not.toBe("Baruch Hashem Adonai");
+    listState.loading = false;
+    act(() => { setSync(state({ version: 5, song_id: null, track_id: "k2", context_index: 1 })); });
+    rerender(<MusicPlayerProvider><Probe /></MusicPlayerProvider>);
+    expect(screen.getByTestId("title").textContent).toBe("Baruch Hashem Adonai");
   });
 });

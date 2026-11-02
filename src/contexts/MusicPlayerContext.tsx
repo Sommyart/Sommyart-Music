@@ -49,6 +49,9 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const pb = sync.playback;
     if (!pb || !sync.device) return;
+    // The song list loads after launch; a song that is not in it yet cannot be shown, and the
+    // state would be marked as applied and never shown. Wait for the list.
+    if (loading) return;
     if (pb.version <= lastAppliedVersion.current) return;
     lastAppliedVersion.current = pb.version;
     if (pb.updated_by_device === sync.device.id) return; // our own echo
@@ -93,7 +96,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     queueMicrotask(() => {
       applyingRemoteRef.current = false;
     });
-  }, [sync.playback?.version, sync.device?.id]);
+  }, [sync.playback?.version, sync.device?.id, loading]);
 
   // ---------------- Push meaningful local changes ----------------
   // Position is NOT written on every tick — only on transport/queue changes
