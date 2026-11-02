@@ -34,7 +34,7 @@ function timeAgo(iso: string): string {
 }
 
 export function DeviceSheet({ trigger }: Props) {
-  const { devices, thisDevice, activeDevice, transferTo, renameDevice, removeDevice } = useMusicPlayerContext();
+  const { devices, thisDevice, activeDevice, transferTo, renameDevice, removeDevice, activeTrack } = useMusicPlayerContext();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
 
@@ -125,6 +125,9 @@ export function DeviceSheet({ trigger }: Props) {
                             </span>
                           )}
                         </div>
+                        {isActive && activeTrack && (
+                          <p className="text-[11px] text-primary truncate mt-0.5">Playing: {activeTrack.title}</p>
+                        )}
                         <div className="flex items-center gap-1 mt-0.5">
                           <OutIcon size={11} className="text-muted-foreground" />
                           <p className="text-[11px] text-muted-foreground truncate">

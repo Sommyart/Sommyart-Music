@@ -7,8 +7,9 @@ import { cn } from "@/lib/utils";
  * another signed-in device. Tap "Take Over" to move playback here.
  */
 export function TakeoverBanner() {
-  const { isThisDeviceActive, activeDevice, thisDevice, takeOver, currentTrack } =
+  const { isThisDeviceActive, activeDevice, thisDevice, takeOver, currentTrack, activeTrack } =
     useMusicPlayerContext();
+  const shown = activeTrack ?? currentTrack;
 
   if (isThisDeviceActive || !activeDevice || activeDevice.id === thisDevice?.id) {
     return null;
@@ -34,8 +35,8 @@ export function TakeoverBanner() {
           </p>
           <p className="text-sm text-foreground truncate">
             {activeDevice.name}
-            {currentTrack && (
-              <span className="text-muted-foreground"> · {currentTrack.title}</span>
+            {shown && (
+              <span className="text-muted-foreground"> · {shown.title}</span>
             )}
           </p>
         </div>

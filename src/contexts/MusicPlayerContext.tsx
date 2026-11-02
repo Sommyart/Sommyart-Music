@@ -25,6 +25,8 @@ type PlayerContextType = Omit<BaseEngine, "applyRemoteState"> & {
   renameDevice: Sync["renameDevice"];
   removeDevice: Sync["removeDevice"];
   takeOver: () => void;
+  /** The song the shared session is on right now (what the playing device is playing). */
+  activeTrack: Track | null;
 };
 
 const MusicPlayerContext = createContext<PlayerContextType | null>(null);
@@ -42,26 +44,21 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
 
   // The last state this device sent or received, so a state it just applied is not sent straight back.
   const lastPushKeyRef = useRef<string>("");
+  const lastPushedSongRef = useRef<string | null | undefined>(undefined);
+
+  // Newest copy of the player, for timers that must not use an old render's values.
+  const playerRef = useRef(player);
+  playerRef.current = player;
 
   // ---------------- Apply incoming remote playback state ----------------
   const lastAppliedVersion = useRef<number>(-1);
   const applyingRemoteRef = useRef<boolean>(false);
-  useEffect(() => {
-    const pb = sync.playback;
-    if (!pb || !sync.device) return;
-    // The song list loads after launch; a song that is not in it yet cannot be shown, and the
-    // state would be marked as applied and never shown. Wait for the list.
-    if (loading) return;
-    if (pb.version <= lastAppliedVersion.current) return;
-    // Opening the app must never start music by itself: the first state seen after launch is shown paused
-    // when this device is the one that would play it.
-    const firstAfterLaunch = lastAppliedVersion.current === -1;
-    lastAppliedVersion.current = pb.version;
-    if (pb.updated_by_device === sync.device.id) return; // our own echo
 
-    // Latency compensation so a takeover resumes at the right position.
+  const applyState = (pb: NonNullable<typeof sync.playback>, firstAfterLaunch: boolean) => {
+    if (!sync.device) return;
+    // Latency compensation so a takeover resumes at the right position (server clock, not this device's clock).
     const elapsed = pb.is_playing
-      ? Math.max(0, (Date.now() - new Date(pb.updated_at).getTime()) / 1000)
+      ? Math.max(0, (sync.serverNow() - new Date(pb.updated_at).getTime()) / 1000)
       : 0;
     const rate = Number(pb.playback_rate) || 1;
 
@@ -99,7 +96,43 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     queueMicrotask(() => {
       applyingRemoteRef.current = false;
     });
+  };
+  const applyStateRef = useRef(applyState);
+  applyStateRef.current = applyState;
+
+  useEffect(() => {
+    const pb = sync.playback;
+    if (!pb || !sync.device) return;
+    // The song list loads after launch; a song that is not in it yet cannot be shown, and the
+    // state would be marked as applied and never shown. Wait for the list.
+    if (loading) return;
+    if (pb.version <= lastAppliedVersion.current) return;
+    // Opening the app must never start music by itself: the first state seen after launch is shown paused
+    // when this device is the one that would play it.
+    const firstAfterLaunch = lastAppliedVersion.current === -1;
+    lastAppliedVersion.current = pb.version;
+    if (pb.updated_by_device === sync.device.id) return; // our own echo
+    applyState(pb, firstAfterLaunch);
   }, [sync.playback?.version, sync.device?.id, loading]);
+
+  // Self-repair: a device that is only following (not playing) checks every 3 seconds that it shows the
+  // same song and the same play/pause state as the shared session, and fixes itself if it does not.
+  // This is what guarantees both devices end up on the same song even if an update was missed or applied wrongly.
+  useEffect(() => {
+    if (audioEnabled || !sync.device || loading) return;
+    const id = window.setInterval(() => {
+      const pb = sync.playback;
+      if (!pb || !sync.device) return;
+      if (pb.updated_by_device === sync.device.id) return; // this device wrote it, nothing to follow
+      if (Date.now() - sync.lastPushAtRef.current < 5000) return; // a button was just pressed here
+      const wanted = pb.track_id ?? pb.song_id;
+      if (!wanted || !allSongs.some((t) => t.id === wanted)) return;
+      const p = playerRef.current;
+      if (p.currentTrack?.id === wanted && p.isPlaying === pb.is_playing) return;
+      applyStateRef.current(pb, false);
+    }, 3000);
+    return () => window.clearInterval(id);
+  }, [audioEnabled, sync.device?.id, sync.playback, loading, allSongs]);
 
   // ---------------- Push meaningful local changes ----------------
   // Position is NOT written on every tick — only on transport/queue changes
@@ -121,10 +154,13 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     ].join("|");
     if (lastPushKeyRef.current === key) return;
     lastPushKeyRef.current = key;
+    // A new song starts at 0, not at wherever the previous song ended.
+    const songChanged = lastPushedSongRef.current !== undefined && lastPushedSongRef.current !== songId;
+    lastPushedSongRef.current = songId;
     sync.pushState({
       song_id: songId,
       is_playing: player.isPlaying,
-      position_seconds: player.currentTime,
+      position_seconds: songChanged && audioEnabled ? 0 : player.currentTime,
       playback_rate: player.playbackRate,
       shuffle: player.shuffle,
       repeat_mode: player.repeat,
@@ -149,19 +185,20 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     sync.device?.id,
   ]);
 
-  // Slow position heartbeat (10s) — enough for takeover accuracy without
-  // hammering the database on slow mobile networks.
+  // Check-in every 5 seconds from the device that is playing: the song, the place in the list and the exact
+  // position. Other devices use it to stay on the same song and the same second.
   useEffect(() => {
     if (!sync.device || !player.isPlaying || !audioEnabled) return;
     const id = window.setInterval(() => {
-      sync.pushState({
-        position_seconds: player.currentTime,
-        is_playing: true,
-        song_id: player.currentTrack?.id ?? null,
-      });
-    }, 10_000);
+      sync.pushHeartbeat(() => ({
+        track_id: playerRef.current.currentTrack?.id ?? null,
+        position_seconds: playerRef.current.currentTime,
+        is_playing: playerRef.current.isPlaying,
+        context_index: playerRef.current.contextIndex,
+      }));
+    }, 5_000);
     return () => window.clearInterval(id);
-  }, [player.isPlaying, player.currentTrack?.id, sync.device?.id, audioEnabled]);
+  }, [player.isPlaying, sync.device?.id, sync.pushHeartbeat, audioEnabled]);
 
   // Remote monitor devices interpolate position locally so the progress bar
   // moves smoothly without extra network traffic.
@@ -174,7 +211,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     const stamp = new Date(pb.updated_at).getTime();
     const rate = Number(pb.playback_rate) || 1;
     const tick = () => {
-      player.setDisplayTime(base + ((Date.now() - stamp) / 1000) * rate);
+      player.setDisplayTime(base + ((sync.serverNow() - stamp) / 1000) * rate);
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -199,7 +236,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   const takeOver = useMemo(() => {
     return () => {
       if (!sync.device) return;
-      sync.pushState({ active_device_id: sync.device.id, is_playing: true });
+      sync.pushState({ active_device_id: sync.device.id, is_playing: true, position_seconds: playerRef.current.currentTime });
     };
   }, [sync.device, sync.pushState]);
 
@@ -207,6 +244,11 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     if (!sync.playback?.active_device_id) return sync.device;
     return sync.devices.find((d) => d.id === sync.playback!.active_device_id) ?? null;
   }, [sync.devices, sync.playback?.active_device_id, sync.device]);
+
+  const activeTrack = useMemo(() => {
+    const id = sync.playback ? (sync.playback.track_id ?? sync.playback.song_id) : null;
+    return id ? allSongs.find((t) => t.id === id) ?? null : null;
+  }, [sync.playback?.track_id, sync.playback?.song_id, allSongs]);
 
   // Recently-played logging — only the owning device logs.
   const loggedRef = useRef<string>("");
@@ -241,6 +283,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     renameDevice: sync.renameDevice,
     removeDevice: sync.removeDevice,
     takeOver,
+    activeTrack,
   };
 
   return <MusicPlayerContext.Provider value={value}>{children}</MusicPlayerContext.Provider>;

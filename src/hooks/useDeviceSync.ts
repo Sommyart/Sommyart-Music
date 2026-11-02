@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Capacitor } from "@capacitor/core";
 import { supabase } from "@/integrations/supabase/client";
 
 const CLIENT_ID_KEY = "sommyart.deviceClientId";
@@ -55,6 +56,9 @@ function detectKind(): string {
 }
 
 function defaultDeviceName(): string {
+  try {
+    if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android") return "Android app";
+  } catch { /* not running inside the app */ }
   const ua = navigator.userAgent;
   if (/iPhone/i.test(ua)) return "iPhone";
   if (/iPad/i.test(ua)) return "iPad";
@@ -100,6 +104,20 @@ export function useDeviceSync() {
   const [devices, setDevices] = useState<DeviceRow[]>([]);
   const [playback, setPlayback] = useState<PlaybackStateRow | null>(null);
   const clientIdRef = useRef<string>(getOrCreateClientId());
+  // Always the newest row this device knows about, so pushes and check-ins never build on an old copy.
+  const playbackRef = useRef<PlaybackStateRow | null>(null);
+  // Pushes run one after another so a later push always builds on the result of the earlier one.
+  const chainRef = useRef<Promise<unknown>>(Promise.resolve());
+  // When this device last wrote, so the self-repair check does not undo a button just pressed.
+  const lastPushAtRef = useRef<number>(0);
+  // Server clock minus this device's clock, in milliseconds.
+  const clockOffsetRef = useRef<number>(0);
+  const serverNow = useCallback(() => Date.now() + clockOffsetRef.current, []);
+
+  const adopt = useCallback((row: PlaybackStateRow) => {
+    if (!playbackRef.current || newer(row, playbackRef.current)) playbackRef.current = row;
+    setPlayback((prev) => (!prev || newer(row, prev) ? row : prev));
+  }, []);
 
   // Track auth
   useEffect(() => {
@@ -116,6 +134,7 @@ export function useDeviceSync() {
       setDevice(null);
       setDevices([]);
       setPlayback(null);
+      playbackRef.current = null;
       return;
     }
     let cancelled = false;
@@ -162,16 +181,30 @@ export function useDeviceSync() {
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
-    const load = async () => {
-      const [{ data: devs }, { data: pb }] = await Promise.all([
-        supabase.from("devices").select("*").eq("user_id", userId).order("last_seen_at", { ascending: false }),
-        supabase.from("playback_state").select("*").eq("user_id", userId).maybeSingle(),
-      ]);
-      if (cancelled) return;
-      if (devs) setDevices(devs as DeviceRow[]);
-      // Never let an older copy replace a newer one that arrived live in the meantime.
-      if (pb) setPlayback((prev) => (!prev || newer(pb as PlaybackStateRow, prev) ? (pb as PlaybackStateRow) : prev));
+
+    const loadDevices = async () => {
+      const { data: devs } = await supabase.from("devices").select("*").eq("user_id", userId).order("last_seen_at", { ascending: false });
+      if (!cancelled && devs) setDevices(devs as DeviceRow[]);
     };
+    const loadPlayback = async () => {
+      const { data: pb } = await supabase.from("playback_state").select("*").eq("user_id", userId).maybeSingle();
+      // Never let an older copy replace a newer one that arrived live in the meantime.
+      if (!cancelled && pb) adopt(pb as PlaybackStateRow);
+    };
+    // How far this device's clock is from the server's, so "how long ago was this written" is right
+    // even when the phone and the PC disagree about the time.
+    const syncClock = async () => {
+      try {
+        const t0 = Date.now();
+        const { data, error } = await supabase.rpc("server_time");
+        const t1 = Date.now();
+        if (cancelled || error || !data) return;
+        const server = Date.parse(data as unknown as string);
+        if (isNaN(server) || t1 - t0 > 3000) return;
+        clockOffsetRef.current = server - (t0 + t1) / 2;
+      } catch { /* the server clock is a nice-to-have */ }
+    };
+    const load = () => Promise.all([loadDevices(), loadPlayback(), syncClock()]);
     load();
 
     // A phone can miss live updates while the screen is off or the connection drops.
@@ -180,6 +213,15 @@ export function useDeviceSync() {
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("online", load);
     window.addEventListener("focus", load);
+
+    // Safety net: even if a live update is lost, every device re-reads the shared state every 5 seconds.
+    let ticks = 0;
+    const poll = window.setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      ticks += 1;
+      loadPlayback();
+      if (ticks % 6 === 0) { loadDevices(); syncClock(); }
+    }, 5_000);
 
     const channel = supabase
       .channel(`sync-${userId}`)
@@ -195,8 +237,8 @@ export function useDeviceSync() {
         });
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "playback_state", filter: `user_id=eq.${userId}` }, (payload) => {
-        if (payload.eventType === "DELETE") setPlayback(null);
-        else setPlayback(payload.new as PlaybackStateRow);
+        if (payload.eventType === "DELETE") { playbackRef.current = null; setPlayback(null); }
+        else adopt(payload.new as PlaybackStateRow);
       })
       .subscribe((status) => {
         if (status === "SUBSCRIBED") load();
@@ -204,12 +246,13 @@ export function useDeviceSync() {
 
     return () => {
       cancelled = true;
+      window.clearInterval(poll);
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("online", load);
       window.removeEventListener("focus", load);
       supabase.removeChannel(channel);
     };
-  }, [userId]);
+  }, [userId, adopt]);
 
   const isThisDeviceActive = useMemo(() => {
     if (!device || !playback) return true; // No state yet → assume self
@@ -217,40 +260,89 @@ export function useDeviceSync() {
     return playback.active_device_id === device.id;
   }, [device, playback]);
 
-  // Push partial playback state. Caller provides version-bumped diff.
+  // Push partial playback state. Pushes are queued so each one builds on the result of the one before.
   const pushState = useCallback(
-    async (patch: Partial<Omit<PlaybackStateRow, "user_id" | "version" | "updated_at">>) => {
-      if (!userId || !device) return;
-      const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      const rawSongId = patch.song_id ?? playback?.track_id ?? playback?.song_id ?? null;
-      // playback_state.song_id is uuid, so songs bundled with the app (ids like "2" or "k2")
-      // cannot go there (22P02). Their id is kept in track_id so other devices still know the song.
-      const song_id = rawSongId && UUID_RE.test(rawSongId) ? rawSongId : null;
-      const next = {
-        user_id: userId,
-        song_id,
-        track_id: rawSongId,
-        position_seconds: patch.position_seconds ?? playback?.position_seconds ?? 0,
-        is_playing: patch.is_playing ?? playback?.is_playing ?? false,
-        playback_rate: patch.playback_rate ?? playback?.playback_rate ?? 1,
-        shuffle: patch.shuffle ?? playback?.shuffle ?? false,
-        repeat_mode: patch.repeat_mode ?? playback?.repeat_mode ?? "off",
-        active_device_id: patch.active_device_id ?? playback?.active_device_id ?? device.id,
-        queue: patch.queue ?? playback?.queue ?? [],
-        context_type: patch.context_type ?? playback?.context_type ?? "library",
-        context_id: patch.context_id ?? playback?.context_id ?? null,
-        context_track_ids: patch.context_track_ids ?? playback?.context_track_ids ?? [],
-        context_index: patch.context_index ?? playback?.context_index ?? 0,
-        volume: patch.volume ?? playback?.volume ?? 1,
-        updated_by_device: device.id,
-        version: (playback?.version ?? 0) + 1,
-        updated_at: new Date().toISOString(),
+    (patch: Partial<Omit<PlaybackStateRow, "user_id" | "version" | "updated_at">>): Promise<void> => {
+      if (!userId || !device) return Promise.resolve();
+      lastPushAtRef.current = Date.now();
+      const run = async () => {
+        const base = playbackRef.current;
+        const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        const rawSongId = patch.song_id ?? base?.track_id ?? base?.song_id ?? null;
+        // playback_state.song_id is uuid, so songs bundled with the app (ids like "2" or "k2")
+        // cannot go there (22P02). Their id is kept in track_id so other devices still know the song.
+        const song_id = rawSongId && UUID_RE.test(rawSongId) ? rawSongId : null;
+        const next = {
+          user_id: userId,
+          song_id,
+          track_id: rawSongId,
+          position_seconds: patch.position_seconds ?? base?.position_seconds ?? 0,
+          is_playing: patch.is_playing ?? base?.is_playing ?? false,
+          playback_rate: patch.playback_rate ?? base?.playback_rate ?? 1,
+          shuffle: patch.shuffle ?? base?.shuffle ?? false,
+          repeat_mode: patch.repeat_mode ?? base?.repeat_mode ?? "off",
+          active_device_id: patch.active_device_id ?? base?.active_device_id ?? device.id,
+          queue: patch.queue ?? base?.queue ?? [],
+          context_type: patch.context_type ?? base?.context_type ?? "library",
+          context_id: patch.context_id ?? base?.context_id ?? null,
+          context_track_ids: patch.context_track_ids ?? base?.context_track_ids ?? [],
+          context_index: patch.context_index ?? base?.context_index ?? 0,
+          volume: patch.volume ?? base?.volume ?? 1,
+          updated_by_device: device.id,
+          // The database overwrites these two with its own order and time; they are only a fallback.
+          version: (base?.version ?? 0) + 1,
+          updated_at: new Date(serverNow()).toISOString(),
+        };
+        const { data, error } = await supabase.from("playback_state").upsert(next, { onConflict: "user_id" }).select().maybeSingle();
+        lastPushAtRef.current = Date.now();
+        if (error) console.error("pushState error", error);
+        else if (data && (data as PlaybackStateRow).user_id) adopt(data as PlaybackStateRow);
       };
-
-      const { error } = await supabase.from("playback_state").upsert(next, { onConflict: "user_id" });
-      if (error) console.error("pushState error", error);
+      const p = chainRef.current.then(run, run);
+      chainRef.current = p.catch(() => {});
+      return p;
     },
-    [userId, device, playback],
+    [userId, device, adopt, serverNow],
+  );
+
+  /**
+   * Regular check-in from the device that is playing: where the song is right now, and which song of
+   * which list. Only succeeds while this device still owns playback, so a device that was just
+   * replaced can never take it back by accident.
+   */
+  const pushHeartbeat = useCallback(
+    (getPatch: () => { track_id: string | null; position_seconds: number; is_playing: boolean; context_index: number }): Promise<void> => {
+      if (!userId || !device) return Promise.resolve();
+      const run = async () => {
+        const base = playbackRef.current;
+        if (!base || base.active_device_id !== device.id) return;
+        const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        const p = getPatch();
+        const patch = {
+          track_id: p.track_id,
+          song_id: p.track_id && UUID_RE.test(p.track_id) ? p.track_id : null,
+          position_seconds: p.position_seconds,
+          is_playing: p.is_playing,
+          context_index: p.context_index,
+          updated_by_device: device.id,
+          version: base.version + 1,
+          updated_at: new Date(serverNow()).toISOString(),
+        };
+        const { data, error } = await supabase
+          .from("playback_state")
+          .update(patch)
+          .eq("user_id", userId)
+          .eq("active_device_id", device.id)
+          .select()
+          .maybeSingle();
+        if (error) console.error("heartbeat error", error);
+        else if (data && (data as PlaybackStateRow).user_id) adopt(data as PlaybackStateRow);
+      };
+      const p = chainRef.current.then(run, run);
+      chainRef.current = p.catch(() => {});
+      return p;
+    },
+    [userId, device, adopt, serverNow],
   );
 
   const transferTo = useCallback(
@@ -275,6 +367,9 @@ export function useDeviceSync() {
     playback,
     isThisDeviceActive,
     pushState,
+    pushHeartbeat,
+    serverNow,
+    lastPushAtRef,
     transferTo,
     renameDevice,
     removeDevice,

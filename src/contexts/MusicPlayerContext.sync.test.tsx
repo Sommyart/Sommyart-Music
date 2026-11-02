@@ -50,6 +50,7 @@ function setSync(playback: any, pushState = vi.fn()) {
   sync.current = {
     userId: "u", device: phone, devices: [phone, { id: pcId, name: "Windows PC" }], playback,
     isThisDeviceActive: playback.active_device_id === phone.id, pushState,
+    pushHeartbeat: vi.fn(), serverNow: () => Date.now(), lastPushAtRef: { current: 0 },
     transferTo: vi.fn(), renameDevice: vi.fn(), removeDevice: vi.fn(),
   };
   return pushState;
@@ -121,5 +122,30 @@ describe("launching the app", () => {
     setSync(state({ version: 9, song_id: MID, track_id: MID, is_playing: true }));
     render(<MusicPlayerProvider><Probe /></MusicPlayerProvider>);
     expect(screen.getByTestId("playing").textContent).toBe("true");
+  });
+});
+
+
+describe("self-repair of a device that only follows", () => {
+  it("moves back to the shared song when it ends up showing a different one", async () => {
+    vi.useFakeTimers();
+    try {
+      setSync(state({ version: 1, song_id: MID, track_id: MID, context_index: 0 }));
+      const { rerender } = render(<MusicPlayerProvider><Probe /></MusicPlayerProvider>);
+      expect(screen.getByTestId("title").textContent).toBe("Midnight on Your Skin");
+
+      // The phone is pushed onto another song by something other than the shared state
+      // (for example a leftover local list). The shared state itself did not change.
+      const ctx: { current: ReturnType<typeof useMusicPlayerContext> | null } = { current: null };
+      function Grab() { ctx.current = useMusicPlayerContext(); return null; }
+      rerender(<MusicPlayerProvider><Probe /><Grab /></MusicPlayerProvider>);
+      act(() => { ctx.current!.playTrack(1); });
+      expect(screen.getByTestId("title").textContent).toBe("Other Song");
+
+      await act(async () => { await vi.advanceTimersByTimeAsync(9000); });
+      expect(screen.getByTestId("title").textContent).toBe("Midnight on Your Skin");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
