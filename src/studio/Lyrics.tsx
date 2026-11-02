@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -6,7 +6,6 @@ import { toast } from "sonner";
 import { AlertTriangle, Loader2, Minus, Pause, Play, Plus, Wand2 } from "lucide-react";
 import { supabase } from "./lib";
 import type { SongRow } from "./Editors";
-import { cleanLyrics } from "./lrc";
 
 type ResultLine = { text: string; t: number; end?: number; conf?: number };
 type Job = {
@@ -94,14 +93,12 @@ export function LyricsDialog({ song, onClose, onSaved }: { song: SongRow | null;
     return () => { a.pause(); a.src = ""; audioRef.current = null; };
   }, [song]);
 
-  const cleaned = useMemo(() => cleanLyrics(text), [text]);
-
   if (!song) return null;
 
   const generate = async () => {
     setBusy(true);
     try {
-      const r = await requestJob(song.id, cleaned.cleanText);
+      const r = await requestJob(song.id, text);
       toast.success(r.started ? "Timing started" : "Timing queued", {
         description: r.started ? "This usually takes a few minutes." : "It will be picked up shortly.",
       });
@@ -242,19 +239,13 @@ export function LyricsDialog({ song, onClose, onSaved }: { song: SongRow | null;
               placeholder={"Paste the lyrics here, one line per row.\n\nLabels like [Chorus] are ignored."}
               className="text-sm"
             />
-            {cleaned.stamped > 0 && (
-              <p className="text-xs text-muted-foreground">
-                Times like [00:08.06] on {cleaned.stamped} line{cleaned.stamped > 1 ? "s" : ""} are ignored. The timing is always worked out from the song.
-              </p>
-            )}
             <p className="text-xs text-muted-foreground">
               The text must match what is sung, in the same order. {savedCount > 0 && `This song already has ${savedCount} timed lines; generating makes new timing for the text above.`}
             </p>
             <div className="flex gap-2">
               <Button type="button" variant="secondary" className="flex-1" onClick={onClose} disabled={busy}>Close</Button>
-              <Button type="button" className="flex-1" onClick={generate} disabled={busy || cleaned.cleanText.length < 5}>
-                {busy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Wand2 className="w-4 h-4 mr-2" />}
-                Generate timing
+              <Button type="button" className="flex-1" onClick={generate} disabled={busy || text.trim().length < 5}>
+                {busy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Wand2 className="w-4 h-4 mr-2" />}Generate timing
               </Button>
             </div>
           </div>
