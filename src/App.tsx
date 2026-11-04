@@ -38,6 +38,8 @@ import SongDetail from "./pages/SongDetail";
 import MyPlaylists from "./pages/MyPlaylists";
 import MyPlaylistDetail from "./pages/MyPlaylistDetail";
 import { PlaylistPickerProvider } from "@/contexts/PlaylistPickerContext";
+import { NotificationsProvider } from "@/contexts/NotificationsContext";
+import NotificationsScreen from "@/pages/NotificationsScreen";
 import { PendingDestinationHandler } from "./components/PendingDestinationHandler";
 
 
@@ -78,6 +80,7 @@ function AppShell() {
         <Route path="/downloads" element={<DownloadsScreen />} />
         <Route path="/playlists" element={<MyPlaylists />} />
         <Route path="/playlists/:id" element={<MyPlaylistDetail />} />
+        <Route path="/notifications" element={<NotificationsScreen />} />
         <Route path="/albums" element={<AlbumsScreen />} />
         <Route path="/album/:id" element={<AlbumDetail />} />
         <Route path="/song/:id" element={<SongDetail />} />
@@ -106,6 +109,7 @@ const App = () => (
           <DownloadProvider>
             <FavouritesProvider>
               <FollowsProvider>
+              <NotificationsProvider>
               <InstallPrompt />
               <UpdatePrompt />
               <NotificationPrompt />
@@ -113,6 +117,7 @@ const App = () => (
               <PlaylistPickerProvider>
                 <AppShell />
               </PlaylistPickerProvider>
+              </NotificationsProvider>
               </FollowsProvider>
             </FavouritesProvider>
           </DownloadProvider>

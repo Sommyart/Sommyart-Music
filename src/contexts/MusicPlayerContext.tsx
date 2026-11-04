@@ -49,6 +49,10 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   // Newest copy of the player, for timers that must not use an old render's values.
   const playerRef = useRef(player);
   playerRef.current = player;
+  const syncRef = useRef(sync);
+  syncRef.current = sync;
+  const audioEnabledRef = useRef(audioEnabled);
+  audioEnabledRef.current = audioEnabled;
 
   // ---------------- Apply incoming remote playback state ----------------
   const lastAppliedVersion = useRef<number>(-1);
@@ -219,18 +223,70 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   }, [audioEnabled, sync.playback?.version, sync.playback?.is_playing]);
 
   // ---------------- Wrapped controls (immediate sync on user intent) ----------------
-  const wrappedSeek = useMemo(() => {
-    return (time: number) => {
-      player.seek(time);
-      if (sync.device) {
-        sync.pushState({
+  // When another device is the one playing, the buttons here are a remote control: they send a command to
+  // that device and then follow the state it reports back. If a command cannot be sent, the old behaviour
+  // (change shared state directly) is used so the buttons never become dead.
+  const remote = (action: Parameters<Sync["sendCommand"]>[0], value: string | number | boolean | undefined, fallback: () => void) => {
+    syncRef.current.sendCommand(action, value).then((ok) => { if (!ok) fallback(); });
+  };
+  const isRemote = () => !audioEnabledRef.current && !!syncRef.current.device;
+
+  const wrappedSeek = (time: number) => {
+    const doLocal = () => {
+      playerRef.current.seek(time);
+      if (syncRef.current.device) {
+        syncRef.current.pushState({
           position_seconds: time,
-          is_playing: player.isPlaying,
-          song_id: player.currentTrack?.id ?? null,
+          is_playing: playerRef.current.isPlaying,
+          song_id: playerRef.current.currentTrack?.id ?? null,
         });
       }
     };
-  }, [player.seek, player.isPlaying, player.currentTrack?.id, sync.device?.id]);
+    if (isRemote()) remote("seek", time, doLocal);
+    else doLocal();
+  };
+
+  const wrappedTogglePlay = () => {
+    if (!isRemote()) return playerRef.current.togglePlay();
+    const playing = syncRef.current.playback?.is_playing ?? playerRef.current.isPlaying;
+    remote(playing ? "pause" : "play", undefined, () => playerRef.current.togglePlay());
+  };
+  const wrappedNext = () => {
+    if (!isRemote()) return playerRef.current.handleNext();
+    remote("next", undefined, () => playerRef.current.handleNext());
+  };
+  const wrappedPrev = () => {
+    if (!isRemote()) return playerRef.current.handlePrev();
+    remote("prev", undefined, () => playerRef.current.handlePrev());
+  };
+  const wrappedShuffle = () => {
+    if (!isRemote()) return playerRef.current.setShuffle();
+    const now = syncRef.current.playback?.shuffle ?? playerRef.current.shuffle;
+    remote("shuffle", !now, () => playerRef.current.setShuffle());
+  };
+  const wrappedRepeat = () => {
+    if (!isRemote()) return playerRef.current.setRepeat();
+    const cur = syncRef.current.playback?.repeat_mode ?? playerRef.current.repeat;
+    remote("repeat", cur === "off" ? "all" : cur === "all" ? "one" : "off", () => playerRef.current.setRepeat());
+  };
+
+  // The device that is playing carries out commands sent by the other devices.
+  useEffect(() => {
+    sync.commandHandlerRef.current = (cmd) => {
+      if (!audioEnabledRef.current) return;
+      const p = playerRef.current;
+      switch (cmd.action) {
+        case "play": if (!p.isPlaying) p.togglePlay(); break;
+        case "pause": if (p.isPlaying) p.togglePlay(); break;
+        case "next": p.handleNext(); break;
+        case "prev": p.handlePrev(); break;
+        case "seek": { const t = Number(cmd.value); if (isFinite(t)) wrappedSeek(t); break; }
+        case "shuffle": p.setShuffleValue(cmd.value === "true"); break;
+        case "repeat": if (cmd.value === "off" || cmd.value === "all" || cmd.value === "one") p.setRepeatValue(cmd.value); break;
+      }
+    };
+    return () => { sync.commandHandlerRef.current = null; };
+  });
 
   /** Transfer playback here, resuming at the shared position. */
   const takeOver = useMemo(() => {
@@ -268,6 +324,11 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   const value: PlayerContextType = {
     ...player,
     seek: wrappedSeek,
+    togglePlay: wrappedTogglePlay,
+    handleNext: wrappedNext,
+    handlePrev: wrappedPrev,
+    setShuffle: wrappedShuffle,
+    setRepeat: wrappedRepeat,
     newestTrack,
     newestTracks,
     songsLoading: loading,

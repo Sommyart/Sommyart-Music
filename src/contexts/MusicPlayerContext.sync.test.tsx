@@ -8,7 +8,7 @@ const K2 = kosherTracks.find((t) => t.id === "k2")!;
 const mk = (id: string, title: string) => ({ id, title, artist: "A", audioUrl: `/music/${title}.mp3`, coverUrl: "/x.png" });
 const LIB = [mk(MID, "Midnight on Your Skin"), mk(OTHER, "Other Song"), K2];
 
-const { sync, listState } = vi.hoisted(() => ({ sync: { current: null as any }, listState: { loading: false } }));
+const { sync, listState, sendCommandMock, handlerRef } = vi.hoisted(() => ({ sync: { current: null as any }, listState: { loading: false }, sendCommandMock: vi.fn(async () => true), handlerRef: { current: null as any } }));
 
 vi.mock("@/hooks/useDeviceSync", () => ({ useDeviceSync: () => sync.current }));
 vi.mock("@/hooks/useOnline", () => ({ useOnline: () => true }));
@@ -50,7 +50,7 @@ function setSync(playback: any, pushState = vi.fn()) {
   sync.current = {
     userId: "u", device: phone, devices: [phone, { id: pcId, name: "Windows PC" }], playback,
     isThisDeviceActive: playback.active_device_id === phone.id, pushState,
-    pushHeartbeat: vi.fn(), serverNow: () => Date.now(), lastPushAtRef: { current: 0 },
+    pushHeartbeat: vi.fn(), sendCommand: sendCommandMock, commandHandlerRef: handlerRef, serverNow: () => Date.now(), lastPushAtRef: { current: 0 },
     transferTo: vi.fn(), renameDevice: vi.fn(), removeDevice: vi.fn(),
   };
   return pushState;
@@ -147,5 +147,45 @@ describe("self-repair of a device that only follows", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+
+describe("remote control", () => {
+  it("a phone that is not playing sends pause to the PC instead of changing the shared state itself", async () => {
+    const push = setSync(state({ version: 1, song_id: MID, track_id: MID, is_playing: true }));
+    sendCommandMock.mockClear();
+    const ctx: { current: ReturnType<typeof useMusicPlayerContext> | null } = { current: null };
+    function Grab() { ctx.current = useMusicPlayerContext(); return null; }
+    render(<MusicPlayerProvider><Probe /><Grab /></MusicPlayerProvider>);
+    push.mockClear();
+    await act(async () => { ctx.current!.togglePlay(); });
+    expect(sendCommandMock).toHaveBeenCalledWith("pause", undefined);
+    await act(async () => { ctx.current!.handleNext(); });
+    expect(sendCommandMock).toHaveBeenCalledWith("next", undefined);
+    await act(async () => { ctx.current!.seek(42); });
+    expect(sendCommandMock).toHaveBeenCalledWith("seek", 42);
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it("the device that is playing carries out a pause sent from the phone", async () => {
+    setSync(state({ version: 1, song_id: MID, track_id: MID, is_playing: true, active_device_id: phone.id, updated_by_device: phone.id }));
+    render(<MusicPlayerProvider><Probe /></MusicPlayerProvider>);
+    expect(handlerRef.current).toBeTruthy();
+    act(() => { handlerRef.current({ id: 1, action: "play", value: null }); });
+    expect(screen.getByTestId("playing").textContent).toBe("true");
+    act(() => { handlerRef.current({ id: 2, action: "pause", value: null }); });
+    expect(screen.getByTestId("playing").textContent).toBe("false");
+  });
+
+  it("falls back to changing the shared state when a command cannot be sent", async () => {
+    const push = setSync(state({ version: 1, song_id: MID, track_id: MID, is_playing: true }));
+    sendCommandMock.mockResolvedValueOnce(false as never);
+    const ctx: { current: ReturnType<typeof useMusicPlayerContext> | null } = { current: null };
+    function Grab() { ctx.current = useMusicPlayerContext(); return null; }
+    render(<MusicPlayerProvider><Probe /><Grab /></MusicPlayerProvider>);
+    await act(async () => { ctx.current!.togglePlay(); });
+    expect(screen.getByTestId("playing").textContent).toBe("false");
+    expect(push).toHaveBeenCalled();
   });
 });

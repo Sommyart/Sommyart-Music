@@ -15,6 +15,16 @@ export interface DeviceRow {
   created_at: string;
 }
 
+export type RemoteAction = "play" | "pause" | "next" | "prev" | "seek" | "shuffle" | "repeat";
+export interface RemoteCommand {
+  id: number;
+  target_device_id: string;
+  from_device_id: string | null;
+  action: RemoteAction;
+  value: string | null;
+  created_at: string;
+}
+
 export interface PlaybackStateRow {
   user_id: string;
   song_id: string | null;
@@ -113,6 +123,20 @@ export function useDeviceSync() {
   // Server clock minus this device's clock, in milliseconds.
   const clockOffsetRef = useRef<number>(0);
   const serverNow = useCallback(() => Date.now() + clockOffsetRef.current, []);
+  // The device that is playing registers a function here; commands sent by other devices are handed to it.
+  const commandHandlerRef = useRef<((cmd: RemoteCommand) => void) | null>(null);
+  const handledCommandsRef = useRef<Set<number>>(new Set());
+  const deviceIdRef = useRef<string | null>(null);
+
+  const handleCommand = useCallback((cmd: RemoteCommand) => {
+    if (!cmd || cmd.target_device_id !== deviceIdRef.current) return;
+    if (handledCommandsRef.current.has(cmd.id)) return;
+    handledCommandsRef.current.add(cmd.id);
+    // Never replay an old command after a reconnect.
+    const age = Date.now() + clockOffsetRef.current - Date.parse(cmd.created_at);
+    if (!isNaN(age) && age > 15_000) return;
+    commandHandlerRef.current?.(cmd);
+  }, []);
 
   const adopt = useCallback((row: PlaybackStateRow) => {
     if (!playbackRef.current || newer(row, playbackRef.current)) playbackRef.current = row;
@@ -157,6 +181,8 @@ export function useDeviceSync() {
     })();
     return () => { cancelled = true; };
   }, [userId]);
+
+  useEffect(() => { deviceIdRef.current = device?.id ?? null; }, [device?.id]);
 
   // Heartbeat + output-device change listener
   useEffect(() => {
@@ -204,6 +230,16 @@ export function useDeviceSync() {
         clockOffsetRef.current = server - (t0 + t1) / 2;
       } catch { /* the server clock is a nice-to-have */ }
     };
+    // Safety net for commands sent to this device whose live delivery was missed.
+    const loadCommands = async () => {
+      const me = deviceIdRef.current;
+      if (!me) return;
+      const since = new Date(Date.now() + clockOffsetRef.current - 12_000).toISOString();
+      const { data, error } = await (supabase as any)
+        .from("playback_commands").select("*").eq("target_device_id", me).gte("created_at", since).order("id", { ascending: true });
+      if (cancelled || error || !data) return;
+      (data as RemoteCommand[]).forEach(handleCommand);
+    };
     const load = () => Promise.all([loadDevices(), loadPlayback(), syncClock()]);
     load();
 
@@ -220,6 +256,7 @@ export function useDeviceSync() {
       if (document.visibilityState !== "visible") return;
       ticks += 1;
       loadPlayback();
+      loadCommands();
       if (ticks % 6 === 0) { loadDevices(); syncClock(); }
     }, 5_000);
 
@@ -240,6 +277,9 @@ export function useDeviceSync() {
         if (payload.eventType === "DELETE") { playbackRef.current = null; setPlayback(null); }
         else adopt(payload.new as PlaybackStateRow);
       })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "playback_commands", filter: `user_id=eq.${userId}` }, (payload) => {
+        handleCommand(payload.new as RemoteCommand);
+      })
       .subscribe((status) => {
         if (status === "SUBSCRIBED") load();
       });
@@ -252,7 +292,7 @@ export function useDeviceSync() {
       window.removeEventListener("focus", load);
       supabase.removeChannel(channel);
     };
-  }, [userId, adopt]);
+  }, [userId, adopt, handleCommand]);
 
   const isThisDeviceActive = useMemo(() => {
     if (!device || !playback) return true; // No state yet → assume self
@@ -345,6 +385,28 @@ export function useDeviceSync() {
     [userId, device, adopt, serverNow],
   );
 
+  /**
+   * Remote control: asks the device that is playing to do something (pause, next, seek...).
+   * Resolves false when the command could not be sent, so the caller can fall back.
+   */
+  const sendCommand = useCallback(
+    async (action: RemoteAction, value?: string | number | boolean): Promise<boolean> => {
+      const target = playbackRef.current?.active_device_id;
+      if (!userId || !device || !target || target === device.id) return false;
+      lastPushAtRef.current = Date.now();
+      const { error } = await (supabase as any).from("playback_commands").insert({
+        user_id: userId,
+        target_device_id: target,
+        from_device_id: device.id,
+        action,
+        value: value === undefined ? null : String(value),
+      });
+      if (error) console.error("sendCommand error", error);
+      return !error;
+    },
+    [userId, device],
+  );
+
   const transferTo = useCallback(
     async (deviceId: string) => {
       await pushState({ active_device_id: deviceId });
@@ -368,6 +430,8 @@ export function useDeviceSync() {
     isThisDeviceActive,
     pushState,
     pushHeartbeat,
+    sendCommand,
+    commandHandlerRef,
     serverNow,
     lastPushAtRef,
     transferTo,

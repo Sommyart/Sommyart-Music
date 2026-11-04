@@ -13,6 +13,7 @@ import { LyricsDialog } from "./Lyrics";
 import { ArtistsPanel } from "./Artists";
 import { SingleUpload, AlbumUpload } from "./Uploads";
 import { RequestsPanel, usePendingCount } from "./Requests";
+import { AnnouncePanel } from "./Announce";
 import { ApplyForm, WaitingScreen, ArtistPortal, Application } from "./ArtistAccess";
 import { kosherTracks } from "@/lib/tracks";
 
@@ -374,7 +375,7 @@ export default function Studio() {
 
       <main className="max-w-2xl mx-auto px-4 pt-6">
         <Tabs defaultValue="single">
-          <TabsList className="grid grid-cols-5 w-full mb-6">
+          <TabsList className={`grid w-full mb-6 ${isAdmin ? "grid-cols-6" : "grid-cols-5"}`}>
             <TabsTrigger value="single">Single</TabsTrigger>
             <TabsTrigger value="album">Album</TabsTrigger>
             <TabsTrigger value="library">Library</TabsTrigger>
@@ -385,12 +386,14 @@ export default function Studio() {
                 <span aria-label={`${pending} waiting`} className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] leading-4 text-center">{pending}</span>
               )}
             </TabsTrigger>
+            {isAdmin && <TabsTrigger value="announce">Announce</TabsTrigger>}
           </TabsList>
           <TabsContent value="single"><SingleUpload artists={artists} onPublished={bump} /></TabsContent>
           <TabsContent value="album"><AlbumUpload artists={artists} onPublished={bump} /></TabsContent>
           <TabsContent value="library"><Library refreshKey={refreshKey} onChanged={bump} artists={artists} /></TabsContent>
           <TabsContent value="artists"><ArtistsPanel refreshKey={refreshKey} onChanged={bump} /></TabsContent>
           <TabsContent value="requests"><RequestsPanel refreshKey={refreshKey} onChanged={bump} /></TabsContent>
+          {isAdmin && <TabsContent value="announce"><AnnouncePanel /></TabsContent>}
         </Tabs>
         <p className="text-xs text-muted-foreground text-center mt-10">
           Published songs appear in Sommyart Music straight away, and listeners are notified in real time.

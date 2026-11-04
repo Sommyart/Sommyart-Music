@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { Bell, BellOff, BellRing } from "lucide-react";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
+import { useNotifications } from "@/contexts/NotificationsContext";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,6 +11,7 @@ import {
   getNotifyPermission,
   hasAskedForPermission,
   markAskedForPermission,
+  NOTIFY_MODE_EVENT,
   NotifyMode,
   NotifyPermission,
   requestNotifyPermission,
@@ -79,9 +82,8 @@ const MODES: { value: NotifyMode; label: string; hint: string }[] = [
   { value: "off", label: "Off", hint: "No new-song alerts" },
 ];
 
-/** Bell button for the Home header that opens the notification settings. */
-export function NotificationBell() {
-  const [open, setOpen] = useState(false);
+/** The notification settings (which alerts you want, and the system permission). */
+export function NotificationSettingsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const [mode, setMode] = useState<NotifyMode>(getNotifyMode());
   const [perm, setPerm] = useState<NotifyPermission>("prompt");
 
@@ -101,18 +103,9 @@ export function NotificationBell() {
     setMode(m);
     setNotifyMode(m);
   };
-  const muted = mode === "off" || perm === "denied";
 
   return (
-    <>
-      <button
-        onClick={() => setOpen(true)}
-        aria-label="Notification settings"
-        className="ml-auto w-10 h-10 rounded-full glass flex items-center justify-center text-foreground"
-      >
-        {muted ? <BellOff size={18} className="text-muted-foreground" /> : <Bell size={18} className="text-primary" />}
-      </button>
-      <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Notifications</DialogTitle>
@@ -156,6 +149,35 @@ export function NotificationBell() {
           </p>
         </DialogContent>
       </Dialog>
-    </>
+  );
+}
+
+/** Bell button for the Home header: opens the notifications list, with a badge for unread ones. */
+export function NotificationBell() {
+  const navigate = useNavigate();
+  const { unread } = useNotifications();
+  const [mode, setMode] = useState<NotifyMode>(getNotifyMode());
+  const [perm, setPerm] = useState<NotifyPermission>("prompt");
+  useEffect(() => {
+    getNotifyPermission().then(setPerm);
+    const on = () => setMode(getNotifyMode());
+    window.addEventListener(NOTIFY_MODE_EVENT, on);
+    return () => window.removeEventListener(NOTIFY_MODE_EVENT, on);
+  }, []);
+  const muted = mode === "off" || perm === "denied";
+
+  return (
+    <button
+      onClick={() => navigate("/notifications")}
+      aria-label={unread ? `Notifications, ${unread} new` : "Notifications"}
+      className="ml-auto relative w-10 h-10 rounded-full glass flex items-center justify-center text-foreground"
+    >
+      {muted ? <BellOff size={18} className="text-muted-foreground" /> : <Bell size={18} className="text-primary" />}
+      {unread > 0 && (
+        <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] leading-4 text-center">
+          {unread > 9 ? "9+" : unread}
+        </span>
+      )}
+    </button>
   );
 }
