@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Track } from "@/lib/tracks";
 import { extractCoverArt } from "@/lib/extractCoverArt";
-import { cachedPlayableUrl, resolvePlayableUrl } from "@/lib/offlineAudio";
+import { autoCacheTrack, cachedPlayableUrl, resolvePlayableUrl } from "@/lib/offlineAudio";
 
 import {
   buildShuffleOrder,
@@ -108,6 +108,9 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
   useEffect(() => {
     if (!rawCurrent) return;
     setExtractedCover(null);
+    // A song with its own cover picture does not need the embedded art, so skip the download.
+    const placeholder = !rawCurrent.coverUrl || rawCurrent.coverUrl === "/images/logo.png";
+    if (!placeholder) return;
     let cancelled = false;
     extractCoverArt(rawCurrent.audioUrl).then((cover) => {
       if (!cancelled && cover) setExtractedCover(cover);
@@ -115,7 +118,15 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
     return () => {
       cancelled = true;
     };
-  }, [rawCurrent?.audioUrl]);
+  }, [rawCurrent?.audioUrl, rawCurrent?.coverUrl]);
+
+  // Keep a copy of a song after about 20 seconds of real listening, so replaying it uses no cloud data.
+  useEffect(() => {
+    if (!rawCurrent || !isPlaying || !audioEnabled) return;
+    const url = rawCurrent.audioUrl;
+    const id = window.setTimeout(() => { void autoCacheTrack(url); }, 20_000);
+    return () => window.clearTimeout(id);
+  }, [rawCurrent?.audioUrl, isPlaying, audioEnabled]);
 
   const currentTrack = rawCurrent
     ? { ...rawCurrent, coverUrl: extractedCover || rawCurrent.coverUrl }

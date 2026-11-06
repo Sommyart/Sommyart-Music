@@ -3,6 +3,8 @@
  * No external dependencies — works natively in the browser.
  */
 
+import { readCachedAudioHead } from "@/lib/offlineAudio";
+
 const coverCache = new Map<string, string | null>();
 
 function readSyncsafeInt(view: DataView, offset: number): number {
@@ -89,11 +91,15 @@ export async function extractCoverArt(audioUrl: string): Promise<string | null> 
       ? audioUrl
       : `${window.location.origin}${audioUrl}`;
 
-    // Only fetch the first 512KB — enough for ID3 tags
-    const response = await fetch(fullUrl, {
-      headers: { Range: "bytes=0-524287" },
-    });
-    const buffer = await response.arrayBuffer();
+    // A song already saved on this device is read locally, with no download.
+    // Otherwise fetch only the first 512KB, which is enough for ID3 tags.
+    let buffer = await readCachedAudioHead(fullUrl, 524288);
+    if (!buffer) {
+      const response = await fetch(fullUrl, {
+        headers: { Range: "bytes=0-524287" },
+      });
+      buffer = await response.arrayBuffer();
+    }
     const cover = findAPICFrame(buffer);
 
     coverCache.set(audioUrl, cover);

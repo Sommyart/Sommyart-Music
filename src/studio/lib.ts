@@ -25,6 +25,8 @@ export async function uploadFile(bucket: "music" | "covers", file: File, base: s
   const path = `${folder ? folder.replace(/\/+$/, "") + "/" : ""}${slug(base)}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}.${extOf(file)}`;
   const { error } = await supabase.storage.from(bucket).upload(path, file, {
     contentType: file.type || undefined,
+    // File names are unique, so phones may keep a copy for a year instead of asking again every hour.
+    cacheControl: "31536000",
     upsert: false,
   });
   if (error) throw new Error(error.message);
