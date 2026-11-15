@@ -21,8 +21,10 @@ export const extOf = (f: File) => (f.name.match(/\.([a-z0-9]+)$/i)?.[1] || "bin"
 /** When an artist is signed in, files go into their own folder: artists/<user id>/ (the storage rules require it). */
 export type Owner = { artistId: string; artistName: string; folder: string };
 
-export async function uploadFile(bucket: "music" | "covers", file: File, base: string, folder?: string) {
-  const path = `${folder ? folder.replace(/\/+$/, "") + "/" : ""}${slug(base)}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}.${extOf(file)}`;
+/** Songs and covers are stored on Cloudflare R2 (it does not charge for downloads). */
+const FILE_CACHE_CONTROL = "public, max-age=31536000, immutable";
+
+async function uploadToSupabase(bucket: "music" | "covers", file: File, path: string): Promise<string> {
   const { error } = await supabase.storage.from(bucket).upload(path, file, {
     contentType: file.type || undefined,
     // File names are unique, so phones may keep a copy for a year instead of asking again every hour.
@@ -31,6 +33,37 @@ export async function uploadFile(bucket: "music" | "covers", file: File, base: s
   });
   if (error) throw new Error(error.message);
   return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl as string;
+}
+
+/** Asks the server for a short-lived upload link, then sends the file straight to R2. */
+async function uploadToR2(bucket: "music" | "covers", file: File, path: string): Promise<string> {
+  const contentType = file.type || "application/octet-stream";
+  const { data, error } = await supabase.functions.invoke("r2-upload-url", {
+    body: { bucket, path, contentType, size: file.size },
+  });
+  if (error || !data?.uploadUrl || !data?.publicUrl) {
+    throw new Error(data?.error || error?.message || "Could not start the upload");
+  }
+  const res = await fetch(data.uploadUrl, {
+    method: "PUT",
+    body: file,
+    headers: { "Content-Type": contentType, "Cache-Control": data.cacheControl || FILE_CACHE_CONTROL },
+  });
+  if (!res.ok) throw new Error(`Upload to storage failed (${res.status})`);
+  return data.publicUrl as string;
+}
+
+export async function uploadFile(bucket: "music" | "covers", file: File, base: string, folder?: string) {
+  const path = `${folder ? folder.replace(/\/+$/, "") + "/" : ""}${slug(base)}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}.${extOf(file)}`;
+  // Applicants' profile pictures stay where they were: the storage rules there cap how many a person can send.
+  if (folder?.startsWith("applications/")) return uploadToSupabase(bucket, file, path);
+  try {
+    return await uploadToR2(bucket, file, path);
+  } catch (err) {
+    // Never lose an upload: if R2 is unreachable or not allowed, use the old storage as before.
+    console.warn("R2 upload failed, using the old storage instead:", err);
+    return uploadToSupabase(bucket, file, path);
+  }
 }
 
 export async function resolveArtist(name: string, artists: Artist[]): Promise<string | null> {
