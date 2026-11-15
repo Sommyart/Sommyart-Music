@@ -90,3 +90,32 @@ describe("automatic song saving", () => {
     expect((URL as any).revokeObjectURL).toHaveBeenCalled();
   });
 });
+
+describe("songs saved before the move to R2", () => {
+  const R2 = "https://pub-d871fc1e9c284711846ff7b27f8f8f1b.r2.dev";
+  const OLD = "https://biksluembwawllqdalct.supabase.co/storage/v1/object/public";
+
+  it("maps a new music address back to its old Supabase address", async () => {
+    const m = await import("./offlineAudio");
+    expect(m.legacyUrls(`${R2}/music/a.mp3`)).toEqual([`${OLD}/music/a.mp3`]);
+    expect(m.legacyUrls(`${R2}/covers/c.png`)).toEqual([`${OLD}/covers/c.png`]);
+    expect(m.legacyUrls(`${R2}/bundled/Anointed.mp3`)).toEqual([`${window.location.origin}/music/Anointed.mp3`]);
+    expect(m.legacyUrls("https://other.example.com/x.mp3")).toEqual([]);
+  });
+
+  it("plays a downloaded song from its old saved copy with no new download", async () => {
+    const m = await import("./offlineAudio");
+    const store = await fc.open("sommyart-offline-music-v1");
+    await store.put(`${OLD}/music/a.mp3`, okAudio());
+    expect((await m.resolvePlayableUrl(`${R2}/music/a.mp3`)).startsWith("blob:")).toBe(true);
+    expect(await m.autoCacheTrack(`${R2}/music/a.mp3`)).toBe(false);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("finds a downloaded bundled song saved under the app's own address", async () => {
+    const m = await import("./offlineAudio");
+    const store = await fc.open("sommyart-offline-music-v1");
+    await store.put(`${window.location.origin}/music/Anointed.mp3`, okAudio());
+    expect((await m.resolvePlayableUrl(`${R2}/bundled/Anointed.mp3`)).startsWith("blob:")).toBe(true);
+  });
+});

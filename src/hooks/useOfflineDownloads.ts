@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Track } from "@/lib/tracks";
-import { releasePlayableUrl, resolvePlayableUrl } from "@/lib/offlineAudio";
+import { legacyUrls, releasePlayableUrl, resolvePlayableUrl } from "@/lib/offlineAudio";
 
 
 const CACHE_NAME = "sommyart-offline-music-v1";
@@ -116,6 +116,8 @@ async function removeCachedAudio(url: string): Promise<void> {
   const cache = await caches.open(CACHE_NAME);
   const fullUrl = url.startsWith("http") ? url : `${window.location.origin}${url}`;
   await cache.delete(fullUrl);
+  // Also remove a copy saved under the song's earlier address, from before the move to R2.
+  for (const old of legacyUrls(fullUrl)) await cache.delete(old);
 }
 
 /**

@@ -22,6 +22,25 @@ function absolute(url: string): string {
   return url.startsWith("http") ? url : `${window.location.origin}${url}`;
 }
 
+/** Where the music and cover files live now, and where they lived before the move to Cloudflare R2. */
+const R2_BASE = "https://pub-d871fc1e9c284711846ff7b27f8f8f1b.r2.dev";
+const OLD_STORAGE_BASE = "https://biksluembwawllqdalct.supabase.co/storage/v1/object/public";
+
+/**
+ * Earlier addresses of the same file. Songs saved on a device before the move to R2 were stored under the
+ * old address, so we look there too and they keep playing offline without being downloaded again.
+ */
+export function legacyUrls(full: string): string[] {
+  if (!full.startsWith(`${R2_BASE}/`)) return [];
+  const rest = full.slice(R2_BASE.length + 1);
+  if (rest.startsWith("bundled/")) {
+    if (typeof window === "undefined") return [];
+    return [`${window.location.origin}/music/${rest.slice("bundled/".length)}`];
+  }
+  if (rest.startsWith("music/") || rest.startsWith("covers/")) return [`${OLD_STORAGE_BASE}/${rest}`];
+  return [];
+}
+
 /**
  * Returns a locally playable URL for `url` when the track is downloaded,
  * otherwise the original URL (streaming path).
@@ -53,10 +72,13 @@ export async function resolvePlayableUrl(url: string): Promise<string> {
 /** The saved copy of a song, from the Downloads or from the automatic cache, or null. */
 async function findCachedAudio(full: string): Promise<Response | null> {
   if (typeof window === "undefined" || !("caches" in window)) return null;
+  const addresses = [full, ...legacyUrls(full)];
   for (const name of [CACHE_NAME, AUTO_CACHE_NAME]) {
     const cache = await caches.open(name);
-    const hit = await cache.match(full);
-    if (hit && hit.type !== "opaque") return hit;
+    for (const address of addresses) {
+      const hit = await cache.match(address);
+      if (hit && hit.type !== "opaque") return hit;
+    }
   }
   return null;
 }
