@@ -60,3 +60,46 @@ export async function finishPasswordChange(rawEmail: string, code: string, passw
   const { error } = await supabase.auth.updateUser({ password });
   if (error) throw new Error(error.message);
 }
+
+/** True when the signed-in person can also sign in with a username and PIN. */
+export async function hasPinLogin(): Promise<boolean> {
+  const { data, error } = await supabase.rpc("has_pin_login");
+  return !error && data === true;
+}
+
+/** The message a server function sent back with a refusal, when there is one. */
+async function refusalMessage(error: any, data: any): Promise<string | null> {
+  if (data?.error) return String(data.error);
+  try {
+    const body = await error?.context?.json?.();
+    if (body?.error) return String(body.error);
+  } catch {
+    /* no readable message */
+  }
+  return null;
+}
+
+/**
+ * Adding an email to a username-and-PIN account, step 1: the PIN is checked and kept
+ * (so it goes on working), then a code is emailed to the new address.
+ */
+export async function startAddEmail(username: string, pin: string, rawEmail: string) {
+  const { data, error } = await supabase.functions.invoke("auth-pin", { body: { action: "keep_pin", username, pin } });
+  if (error || data?.error) throw new Error((await refusalMessage(error, data)) || "Could not check your PIN. Please try again.");
+  const { error: mailError } = await supabase.auth.updateUser({ email: cleanEmail(rawEmail) });
+  if (mailError) {
+    throw new Error(/already|registered|exists/i.test(mailError.message) ? "That email already has an account." : mailError.message);
+  }
+}
+
+/** Step 2: the emailed code confirms the address, then the password is set. */
+export async function finishAddEmail(rawEmail: string, code: string, password: string) {
+  const email = cleanEmail(rawEmail);
+  const { data, error } = await supabase.auth.verifyOtp({ email, token: cleanCode(code), type: "email_change" });
+  if (error) throw new Error("That code is wrong or has expired. Request a new one.");
+  if ((data?.user?.email ?? "").toLowerCase() !== email) {
+    throw new Error("The email could not be confirmed yet. Please tell the app owner.");
+  }
+  const { error: passwordError } = await supabase.auth.updateUser({ password });
+  if (passwordError) throw new Error(`Your email was added, but the password was not saved: ${passwordError.message}`);
+}

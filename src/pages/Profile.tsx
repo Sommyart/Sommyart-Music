@@ -9,11 +9,15 @@ import { useOnline } from "@/hooks/useOnline";
 import {
   cleanCode,
   codeLooksComplete,
+  emailProblem,
   ensureProfile,
+  finishAddEmail,
   finishPasswordChange,
+  hasPinLogin,
   isPinAccount,
   passwordProblem,
   sendPasswordCode,
+  startAddEmail,
   type Profile as ProfileRow,
 } from "@/lib/account";
 import { uploadAvatar } from "@/lib/avatar";
@@ -57,6 +61,15 @@ export default function Profile() {
   const [newCodes, setNewCodes] = useState<string[] | null>(null);
   const [gettingCodes, setGettingCodes] = useState(false);
 
+  // Adding an email to a username-and-PIN account
+  const [hasPin, setHasPin] = useState(false);
+  const [addEmail, setAddEmail] = useState("");
+  const [addPassword, setAddPassword] = useState("");
+  const [addPin, setAddPin] = useState("");
+  const [addCode, setAddCode] = useState("");
+  const [addCodeSent, setAddCodeSent] = useState(false);
+  const [adding, setAdding] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -69,6 +82,10 @@ export default function Profile() {
       if (cancelled) return;
       setUserId(user.id);
       setEmail(user.email ?? null);
+      setHasPin(isPinAccount(user.email));
+      hasPinLogin().then((yes) => {
+        if (!cancelled && yes) setHasPin(true);
+      });
       const row = await ensureProfile();
       if (cancelled) return;
       setProfile(row);
@@ -89,7 +106,47 @@ export default function Profile() {
   }, []);
 
   const fail = (title: string, description?: string) => toast({ title, description, variant: "destructive" });
-  const pinAccount = isPinAccount(email);
+  const realEmail = !!email && !isPinAccount(email);
+
+  const sendAddEmailCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profile) return;
+    const badEmail = emailProblem(addEmail);
+    if (badEmail) return fail("Check your email", badEmail);
+    const badPassword = passwordProblem(addPassword);
+    if (badPassword) return fail("Check your password", badPassword);
+    if (!/^\d{4}$/.test(addPin)) return fail("Enter your PIN", "Your current 4-digit PIN is needed.");
+    setAdding(true);
+    try {
+      await startAddEmail(profile.username, addPin, addEmail);
+      setHasPin(true);
+      setAddCodeSent(true);
+      toast({ title: "Code sent", description: `Check ${addEmail.trim()}. It may land in spam.` });
+    } catch (err: any) {
+      fail("Could not add the email", err?.message);
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const confirmAddEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!codeLooksComplete(addCode)) return fail("Enter the code", "It is the number in the email we sent.");
+    setAdding(true);
+    try {
+      await finishAddEmail(addEmail, addCode, addPassword);
+      setEmail(addEmail.trim().toLowerCase());
+      setAddCodeSent(false);
+      setAddCode("");
+      setAddPassword("");
+      setAddPin("");
+      toast({ title: "Email added", description: "You can now sign in with your email, or with your username and PIN." });
+    } catch (err: any) {
+      fail("Could not confirm the email", err?.message);
+    } finally {
+      setAdding(false);
+    }
+  };
   const shownName = profile?.display_name || profile?.username || "Listener";
 
   const saveName = async () => {
@@ -215,7 +272,7 @@ export default function Profile() {
               <div>
                 <p className="font-display tracking-wider text-lg">{shownName}</p>
                 <p className="text-xs text-muted-foreground">
-                  {uploading ? "Uploading photo…" : pinAccount ? `@${profile?.username ?? ""}` : email}
+                  {uploading ? "Uploading photo…" : [hasPin ? `@${profile?.username ?? ""}` : "", realEmail ? email : ""].filter(Boolean).join(" · ")}
                 </p>
               </div>
             </section>
@@ -241,7 +298,42 @@ export default function Profile() {
               </div>
             </section>
 
-            {!pinAccount && email && (
+            {!realEmail && (
+              <section className={card}>
+                <h2 className="text-sm font-display tracking-wider">Add an email (optional)</h2>
+                <p className="text-xs text-muted-foreground">
+                  Add an email and password to sign in either way, and to reset things by email if you forget.
+                  Your username and PIN keep working.
+                </p>
+                {!addCodeSent ? (
+                  <form onSubmit={sendAddEmailCode} className="space-y-2">
+                    <Input type="email" inputMode="email" placeholder="you@example.com" value={addEmail} onChange={(e) => setAddEmail(e.target.value)} autoComplete="email" aria-label="Email" className={field} />
+                    <Input type="password" placeholder="New password (8 or more characters)" value={addPassword} onChange={(e) => setAddPassword(e.target.value)} autoComplete="new-password" aria-label="New password" className={field} />
+                    <Input type="password" inputMode="numeric" maxLength={4} placeholder="Current PIN" value={addPin} onChange={(e) => setAddPin(e.target.value.replace(/\D/g, ""))} aria-label="Current PIN" className={field} />
+                    <Button type="submit" variant="outline" disabled={adding || !online}>{adding ? "Please wait…" : "Send code"}</Button>
+                  </form>
+                ) : (
+                  <form onSubmit={confirmAddEmail} className="space-y-2">
+                    <p className="text-xs text-muted-foreground break-all">We emailed a code to {addEmail.trim()}.</p>
+                    <Input
+                      inputMode="numeric"
+                      placeholder="Code from the email"
+                      value={addCode}
+                      onChange={(e) => setAddCode(cleanCode(e.target.value))}
+                      autoComplete="one-time-code"
+                      aria-label="Code from the email"
+                      className={`${field} text-center font-mono tracking-[0.3em]`}
+                    />
+                    <div className="flex gap-2">
+                      <Button type="submit" disabled={adding} className="flex-1">{adding ? "Please wait…" : "Confirm email"}</Button>
+                      <Button type="button" variant="ghost" onClick={() => { setAddCodeSent(false); setAddCode(""); }}>Back</Button>
+                    </div>
+                  </form>
+                )}
+              </section>
+            )}
+
+            {realEmail && (
               <section className={card}>
                 <h2 className="text-sm font-display tracking-wider">Email and password</h2>
                 <p className="text-sm text-muted-foreground break-all">{email}</p>
@@ -279,11 +371,11 @@ export default function Profile() {
               </section>
             )}
 
-            {pinAccount && (
+            {hasPin && (
               <section className={card}>
                 <h2 className="text-sm font-display tracking-wider">Recovery codes</h2>
                 <p className="text-xs text-muted-foreground">
-                  You sign in with a username and PIN. Recovery codes are the only way to reset a forgotten PIN.
+                  Recovery codes reset a forgotten PIN for your username{profile ? ` (${profile.username})` : ""}.
                   Making new codes cancels the old ones.
                 </p>
                 {newCodes ? (

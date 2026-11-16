@@ -106,7 +106,11 @@ export function AuthGate() {
     const { data, error } = await supabase.functions.invoke("auth-pin", {
       body: { action, ...payload },
     });
-    if (error) throw new Error(error.message);
+    if (error) {
+      // A refusal carries its own wording (wrong PIN, or too many wrong tries).
+      const body = await (error as any)?.context?.json?.().catch(() => null);
+      throw new Error(body?.error || error.message);
+    }
     if (data?.error) throw new Error(data.error);
     return data;
   };
