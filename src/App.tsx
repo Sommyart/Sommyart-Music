@@ -40,6 +40,7 @@ import MyPlaylistDetail from "./pages/MyPlaylistDetail";
 import { PlaylistPickerProvider } from "@/contexts/PlaylistPickerContext";
 import { NotificationsProvider } from "@/contexts/NotificationsContext";
 import NotificationsScreen from "@/pages/NotificationsScreen";
+import Profile from "@/pages/Profile";
 import { PendingDestinationHandler } from "./components/PendingDestinationHandler";
 
 
@@ -81,6 +82,7 @@ function AppShell() {
         <Route path="/playlists" element={<MyPlaylists />} />
         <Route path="/playlists/:id" element={<MyPlaylistDetail />} />
         <Route path="/notifications" element={<NotificationsScreen />} />
+        <Route path="/profile" element={<Profile />} />
         <Route path="/albums" element={<AlbumsScreen />} />
         <Route path="/album/:id" element={<AlbumDetail />} />
         <Route path="/song/:id" element={<SongDetail />} />

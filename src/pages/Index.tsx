@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
-import { Search, X, Star } from "lucide-react";
+import { Search, X, Star, User } from "lucide-react";
+import { Link } from "react-router-dom";
 import { TrackItem } from "@/components/playlist/TrackItem";
 import { HeroSection } from "@/components/hero/HeroSection";
 import { AdBanner } from "@/components/hero/AdBanner";
@@ -84,12 +85,19 @@ const Index = () => {
             <img src="/images/logo.png" alt="Sommyart" className="w-full h-full object-cover" />
           </div>
           <div>
-            <h1 className="text-xl font-display font-bold tracking-wider text-foreground neon-text">
+            <h1 className="text-lg sm:text-xl whitespace-nowrap font-display font-bold tracking-wider text-foreground neon-text">
               Sommyart Music
             </h1>
             <p className="text-xs text-muted-foreground">Feel the frequency</p>
           </div>
           <NotificationBell />
+          <Link
+            to="/profile"
+            aria-label="Your profile"
+            className="w-10 h-10 rounded-full glass flex items-center justify-center text-foreground"
+          >
+            <User size={18} className="text-primary" />
+          </Link>
         </div>
       </div>
 

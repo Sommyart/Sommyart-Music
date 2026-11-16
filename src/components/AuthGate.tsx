@@ -17,13 +17,36 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { useOnline } from "@/hooks/useOnline";
 import { Copy, Download, ShieldCheck } from "lucide-react";
+import { EmailAuthForm, EMAIL_AUTH_START } from "@/components/EmailAuthForm";
 
 type Mode = "signin" | "signup" | "forgot";
+type Method = "email" | "pin";
+
+const METHOD_KEY = "sommyart-signin-method";
+const savedMethod = (): Method => {
+  try {
+    return localStorage.getItem(METHOD_KEY) === "pin" ? "pin" : "email";
+  } catch {
+    return "email";
+  }
+};
 
 export function AuthGate() {
   const online = useOnline();
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<Mode>("signin");
+  // People can sign in with an email and password, or with the older username and PIN.
+  const [method, setMethodRaw] = useState<Method>(savedMethod);
+  const [emailHeading, setEmailHeading] = useState(EMAIL_AUTH_START);
+  const setMethod = (m: Method) => {
+    setMethodRaw(m);
+    setEmailHeading(EMAIL_AUTH_START);
+    try {
+      localStorage.setItem(METHOD_KEY, m);
+    } catch {
+      /* private mode: the choice just isn't remembered */
+    }
+  };
   const [username, setUsername] = useState("");
   const [pin, setPin] = useState("");
   const [newPin, setNewPin] = useState("");
@@ -238,11 +261,29 @@ export function AuthGate() {
       >
         <DialogHeader>
           <DialogTitle className="font-display tracking-wider neon-text">
-            {titles[mode]}
+            {method === "email" ? emailHeading.title : titles[mode]}
           </DialogTitle>
-          <DialogDescription>{descriptions[mode]}</DialogDescription>
+          <DialogDescription>{method === "email" ? emailHeading.hint : descriptions[mode]}</DialogDescription>
         </DialogHeader>
 
+        <div role="tablist" aria-label="How to sign in" className="grid grid-cols-2 gap-1 rounded-md border border-primary/30 p-1 text-xs">
+          {(["email", "pin"] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              role="tab"
+              aria-selected={method === m}
+              onClick={() => setMethod(m)}
+              className={`rounded px-2 py-1.5 transition-colors ${method === m ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              {m === "email" ? "Email" : "Username & PIN"}
+            </button>
+          ))}
+        </div>
+
+        {method === "email" ? (
+          <EmailAuthForm onHeading={(title, hint) => setEmailHeading({ title, hint })} />
+        ) : (
         <form onSubmit={handleSubmit} className="space-y-4 pt-2">
           <Input
             autoFocus
@@ -346,6 +387,7 @@ export function AuthGate() {
             )}
           </div>
         </form>
+        )}
       </DialogContent>
     </Dialog>
   );
