@@ -95,10 +95,21 @@ export async function startAddEmail(username: string, pin: string, rawEmail: str
 /** Step 2: the emailed code confirms the address, then the password is set. */
 export async function finishAddEmail(rawEmail: string, code: string, password: string) {
   const email = cleanEmail(rawEmail);
-  const { data, error } = await supabase.auth.verifyOtp({ email, token: cleanCode(code), type: "email_change" });
-  if (error) throw new Error("That code is wrong or has expired. Request a new one.");
-  if ((data?.user?.email ?? "").toLowerCase() !== email) {
-    throw new Error("The email could not be confirmed yet. Please tell the app owner.");
+  // Some emails carry a link instead of a code. If the link was already used, the
+  // address is confirmed and only the password is left to save.
+  const { data: now } = await supabase.auth.getUser();
+  const alreadyConfirmed = (now?.user?.email ?? "").toLowerCase() === email;
+  if (!alreadyConfirmed) {
+    if (!codeLooksComplete(cleanCode(code))) {
+      throw new Error("Enter the code from the email. If the email has a link instead, open the link first, then tap Confirm again.");
+    }
+    const { data, error } = await supabase.auth.verifyOtp({ email, token: cleanCode(code), type: "email_change" });
+    if (error) throw new Error("That code is wrong or has expired. Request a new one.");
+    if ((data?.user?.email ?? "").toLowerCase() !== email) {
+      throw new Error("The email could not be confirmed yet. Please tell the app owner.");
+    }
+  } else {
+    await supabase.auth.refreshSession();
   }
   const { error: passwordError } = await supabase.auth.updateUser({ password });
   if (passwordError) throw new Error(`Your email was added, but the password was not saved: ${passwordError.message}`);

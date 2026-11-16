@@ -131,7 +131,6 @@ export default function Profile() {
 
   const confirmAddEmail = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!codeLooksComplete(addCode)) return fail("Enter the code", "It is the number in the email we sent.");
     setAdding(true);
     try {
       await finishAddEmail(addEmail, addCode, addPassword);
@@ -314,7 +313,9 @@ export default function Profile() {
                   </form>
                 ) : (
                   <form onSubmit={confirmAddEmail} className="space-y-2">
-                    <p className="text-xs text-muted-foreground break-all">We emailed a code to {addEmail.trim()}.</p>
+                    <p className="text-xs text-muted-foreground break-all">
+                      We emailed {addEmail.trim()}. Enter the code from the email. If it has a link instead, open the link, come back here and tap Confirm.
+                    </p>
                     <Input
                       inputMode="numeric"
                       placeholder="Code from the email"
