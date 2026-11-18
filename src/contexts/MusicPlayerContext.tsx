@@ -143,8 +143,12 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   // plus a slow heartbeat while this device owns playback.
   useEffect(() => {
     if (!sync.device) return;
-    if (applyingRemoteRef.current) return;
     const songId = player.currentTrack?.id ?? null;
+    if (applyingRemoteRef.current) {
+      // A song chosen on another device is not a "new song" to report from here later.
+      lastPushedSongRef.current = songId;
+      return;
+    }
     const key = [
       songId,
       player.isPlaying,
@@ -292,9 +296,20 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   const takeOver = useMemo(() => {
     return () => {
       if (!sync.device) return;
-      sync.pushState({ active_device_id: sync.device.id, is_playing: true, position_seconds: playerRef.current.currentTime });
+      const pb = sync.playback;
+      const wanted = pb ? pb.track_id ?? pb.song_id : null;
+      let at = playerRef.current.currentTime;
+      if (pb && wanted && wanted === playerRef.current.currentTrack?.id) {
+        const rate = Number(pb.playback_rate) || 1;
+        const elapsed = pb.is_playing ? Math.max(0, (sync.serverNow() - new Date(pb.updated_at).getTime()) / 1000) : 0;
+        at = (Number(pb.position_seconds) || 0) + elapsed * rate;
+      }
+      // Put this device's own player at that spot first, so it does not start from the beginning.
+      playerRef.current.seek(at);
+      lastPushedSongRef.current = playerRef.current.currentTrack?.id ?? null;
+      sync.pushState({ active_device_id: sync.device.id, is_playing: true, position_seconds: at });
     };
-  }, [sync.device, sync.pushState]);
+  }, [sync.device, sync.pushState, sync.playback, sync.serverNow]);
 
   const activeDevice = useMemo(() => {
     if (!sync.playback?.active_device_id) return sync.device;

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Track } from "@/lib/tracks";
 import { extractCoverArt } from "@/lib/extractCoverArt";
 import { autoCacheTrack, cachedPlayableUrl, resolvePlayableUrl } from "@/lib/offlineAudio";
+import { watchForCallEnd, type ResumeWatch } from "@/lib/callState";
 
 import {
   buildShuffleOrder,
@@ -84,11 +85,21 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
 
   // Position to seek to once the next media element is ready (restore/remote).
   const pendingSeekRef = useRef<number | null>(null);
+  // The song a pending position belongs to (null: whichever song loads next), so a position meant for one
+  // song is never applied to a different one picked in the meantime.
+  const pendingSeekTrackRef = useRef<string | null>(null);
   // The address last given to the audio element. The element reports its own
   // address in a rewritten form (full path, spaces turned into %20), so comparing
   // against that made every pause or interruption look like a new song and
   // restart it from the beginning.
   const loadedUrlRef = useRef("");
+  // Which song the audio element holds, and the last real position heard in it. When the same song has to
+  // be loaded again (a fresh copy of a downloaded file, or the phone dropping it during a call), it picks
+  // up from here instead of the beginning.
+  const loadedTrackIdRef = useRef<string | null>(null);
+  const lastPosRef = useRef<{ trackId: string | null; time: number }>({ trackId: null, time: 0 });
+  // Set while music that the phone paused (for example for a call) is waiting to carry on.
+  const callWatchRef = useRef<ResumeWatch | null>(null);
   // Guards against error-driven infinite skipping.
   const errorSkipsRef = useRef(0);
   const restoredRef = useRef(false);
@@ -155,6 +166,7 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
     if (audio) {
       audio.pause();
       audio.currentTime = 0;
+      lastPosRef.current = { trackId: loadedTrackIdRef.current, time: 0 };
     }
     setIsPlaying(false);
     setCurrentTime(0);
@@ -286,7 +298,11 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
     audio.preload = "metadata";
     audioRef.current = audio;
 
-    const onTime = () => setCurrentTime(audio.currentTime);
+    const onTime = () => {
+      setCurrentTime(audio.currentTime);
+      // A reset element reports 0 while it has nothing loaded; that is not a real position.
+      if (audio.readyState >= 1) lastPosRef.current = { trackId: loadedTrackIdRef.current, time: audio.currentTime };
+    };
     const onMeta = () => setDuration(audio.duration);
     // One advance per finished song, however many signals report the end.
     let endedLock = false;
@@ -341,8 +357,22 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
       window.setTimeout(() => {
         if (isPlayingRef.current && audioEnabledRef.current && audio.paused && !audio.ended && audio.readyState >= 2) {
           setIsPlaying(false);
+          // If a phone call caused this, carry on where the song was once the call is over.
+          const trackId = loadedTrackIdRef.current;
+          const at = audio.currentTime;
+          callWatchRef.current?.cancel();
+          callWatchRef.current = watchForCallEnd(() => {
+            callWatchRef.current = null;
+            if (isPlayingRef.current || !audioEnabledRef.current || loadedTrackIdRef.current !== trackId) return;
+            if (at > 0) lastPosRef.current = { trackId, time: at };
+            setIsPlaying(true);
+          });
         }
       }, 400);
+    };
+    // The phone may also restart the music by itself after an interruption: show it as playing.
+    const onPlay = () => {
+      if (audioEnabledRef.current && !isPlayingRef.current) setIsPlaying(true);
     };
 
     audio.addEventListener("timeupdate", onTime);
@@ -350,7 +380,10 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
     audio.addEventListener("ended", onEnded);
     audio.addEventListener("error", onError);
     audio.addEventListener("pause", onPause);
+    audio.addEventListener("play", onPlay);
     return () => {
+      audio.removeEventListener("play", onPlay);
+      callWatchRef.current?.cancel();
       audio.removeEventListener("timeupdate", onTime);
       audio.removeEventListener("loadedmetadata", onMeta);
       audio.removeEventListener("ended", onEnded);
@@ -462,6 +495,19 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
     return () => window.clearTimeout(timer);
   }, [boost, isPlaying, audioEnabled, rawCurrent?.id, enableBoostGraph]);
 
+  // The phone can put a paused song back to the start behind the app's back (it happens after calls).
+  // Before playing it again, move it back to where it really was.
+  const restorePlace = (audio: HTMLAudioElement) => {
+    const last = lastPosRef.current;
+    if (audio.readyState < 1 || audio.currentTime >= 0.5) return;
+    if (last.trackId !== loadedTrackIdRef.current || last.time <= 1) return;
+    try {
+      audio.currentTime = last.time;
+    } catch {
+      /* noop */
+    }
+  };
+
   // ---------- Load / play the current track ----------
   // Downloaded tracks resolve to a local blob URL first, so playback works
   // with no network and starts instantly.
@@ -472,8 +518,21 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
     const remoteUrl = rawCurrent.audioUrl;
     const applySource = (url: string) => {
       if (cancelled || !audio) return;
+      const sameSong = loadedTrackIdRef.current === rawCurrent.id;
+      if (pendingSeekTrackRef.current && pendingSeekTrackRef.current !== rawCurrent.id) {
+        pendingSeekRef.current = null;
+        pendingSeekTrackRef.current = null;
+      }
       if (loadedUrlRef.current !== url || !audio.src) {
+        // Reloading the song that was already playing keeps its place.
+        if (pendingSeekRef.current == null && sameSong) {
+          const last = lastPosRef.current;
+          const here = audio.readyState >= 1 ? audio.currentTime : 0;
+          const keep = here > 0.5 ? here : last.trackId === rawCurrent.id ? last.time : 0;
+          if (keep > 0.5) pendingSeekRef.current = keep;
+        }
         loadedUrlRef.current = url;
+        loadedTrackIdRef.current = rawCurrent.id;
         audio.src = url;
         audio.load();
         const seekTo = pendingSeekRef.current;
@@ -485,10 +544,22 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
               /* noop */
             }
             pendingSeekRef.current = null;
+            pendingSeekTrackRef.current = null;
             audio.removeEventListener("loadedmetadata", apply);
           };
           audio.addEventListener("loadedmetadata", apply);
         }
+      } else if (pendingSeekRef.current != null && audio.readyState >= 1) {
+        // Already loaded: jump straight to the position another device or a restore asked for.
+        try {
+          audio.currentTime = pendingSeekRef.current;
+        } catch {
+          /* noop */
+        }
+        pendingSeekRef.current = null;
+        pendingSeekTrackRef.current = null;
+      } else if (sameSong && isPlaying) {
+        restorePlace(audio);
       }
       audio.playbackRate = playbackRate;
       audio.volume = volume;
@@ -516,7 +587,7 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
           }, 1500);
         };
         check();
-      } else if (!isPlaying) {
+      } else if (!isPlaying && !audio.paused) {
         audio.pause();
       }
     };
@@ -594,11 +665,16 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
   const togglePlay = useCallback(() => {
     const audio = audioRef.current;
     if (!audio) return;
+    callWatchRef.current?.cancel();
+    callWatchRef.current = null;
     if (isPlaying) {
       audio.pause();
       setIsPlaying(false);
     } else {
-      if (audioEnabled) audio.play().catch(() => {});
+      if (audioEnabled) {
+        restorePlace(audio);
+        audio.play().catch(() => {});
+      }
       setIsPlaying(true);
     }
   }, [isPlaying, audioEnabled]);
@@ -609,6 +685,7 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
     const audio = audioRef.current;
     if (audio && audio.currentTime > 3) {
       audio.currentTime = 0;
+      lastPosRef.current = { trackId: loadedTrackIdRef.current, time: 0 };
       setCurrentTime(0);
       return;
     }
@@ -639,10 +716,12 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
   const seek = useCallback((time: number) => {
     const audio = audioRef.current;
     if (audio) {
+      lastPosRef.current = { trackId: loadedTrackIdRef.current, time };
       try {
         audio.currentTime = time;
       } catch {
         pendingSeekRef.current = time;
+        pendingSeekTrackRef.current = null;
       }
     }
     setCurrentTime(time);
@@ -660,6 +739,7 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
       setShuffleOrder(shuffle ? buildShuffleOrder(tracks.length, start) : null);
       setCurrentTime(0);
       pendingSeekRef.current = null;
+      pendingSeekTrackRef.current = null;
       if (autoplay) setIsPlaying(true);
     },
     [shuffle],
@@ -820,6 +900,10 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
       }
 
       const audio = audioRef.current;
+      // Until this device has the song loaded, setting the position directly is lost when the song loads,
+      // so it is also remembered and applied once the song is ready.
+      pendingSeekRef.current = s.positionSeconds;
+      pendingSeekTrackRef.current = s.songId;
       if (s.songId) {
         const tracks = s.contextTrackIds?.length
           ? (s.contextTrackIds.map((id) => byId.get(id)).filter(Boolean) as Track[])
@@ -846,13 +930,19 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
       if (typeof s.volume === "number") setVolumeState(s.volume);
       if (audio) {
         audio.playbackRate = s.playbackRate;
-        if (Math.abs((audio.currentTime || 0) - s.positionSeconds) > 1.5) {
-          try {
-            audio.currentTime = s.positionSeconds;
-          } catch {
-            pendingSeekRef.current = s.positionSeconds;
+        const sameSongLoaded = !!s.songId && loadedTrackIdRef.current === s.songId && audio.readyState >= 1;
+        if (sameSongLoaded) {
+          if (Math.abs((audio.currentTime || 0) - s.positionSeconds) > 1.5) {
+            try {
+              audio.currentTime = s.positionSeconds;
+            } catch {
+              /* stays pending */
+            }
           }
+          pendingSeekRef.current = null;
+          pendingSeekTrackRef.current = null;
         }
+        lastPosRef.current = { trackId: s.songId ?? loadedTrackIdRef.current, time: s.positionSeconds };
       }
       setCurrentTime(s.positionSeconds);
       setIsPlaying(s.isPlaying);
@@ -900,6 +990,7 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
     setPlaybackRateState(saved.playbackRate || 1);
     if (saved.position > 0) {
       pendingSeekRef.current = saved.position;
+      pendingSeekTrackRef.current = saved.currentTrackId ?? null;
       setCurrentTime(saved.position);
     }
     // Deliberately does NOT set isPlaying — browsers block autoplay.
