@@ -10,6 +10,7 @@ public class MainActivity extends BridgeActivity {
         // Our own plugin must be registered before the bridge starts.
         registerPlugin(ApkInstallerPlugin.class);
         registerPlugin(CallStatePlugin.class);
+        registerPlugin(SharedFilesPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

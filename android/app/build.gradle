@@ -16,6 +16,18 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // Two apps from one project: the listener app and the Studio (upload) app.
+    flavorDimensions "app"
+    productFlavors {
+        music {
+            dimension "app"
+            applicationId "com.sommyart.music"
+        }
+        studio {
+            dimension "app"
+            applicationId "com.sommyart.studio"
+        }
+    }
     signingConfigs {
         sommyart {
             storeFile file("sommyart-release.keystore")
@@ -52,6 +64,11 @@ dependencies {
 }
 
 apply from: 'capacitor.build.gradle'
+
+// Push notifications are set up for the listener app only; the Studio app skips that step.
+tasks.configureEach { task ->
+    if (task.name.contains("Studio") && task.name.contains("GoogleServices")) task.enabled = false
+}
 
 try {
     def servicesJSON = file('google-services.json')

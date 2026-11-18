@@ -10,6 +10,7 @@ import { supabase, Artist, Owner, shrinkImage, uploadFile } from "./lib";
 import { AlbumUpload, SingleUpload } from "./Uploads";
 import { EditSongDialog, SongRow, AlbumRow } from "./Editors";
 import { LyricsDialog } from "./Lyrics";
+import { useSharedTab } from "./sharedFiles";
 
 export type Application = {
   id: string; user_id: string; artist_name: string; genre: string | null; description: string | null; image_url: string | null;
@@ -279,6 +280,7 @@ export function ArtistPortal({ owner, username, onSignOut }: { owner: Owner; use
   const [artists, setArtists] = useState<Artist[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
   const bump = () => setRefreshKey((k) => k + 1);
+  const [tab, setTab] = useSharedTab();
 
   useEffect(() => {
     supabase.from("artists").select("id,name").order("name").then(({ data }: any) => setArtists(data ?? []));
@@ -287,7 +289,7 @@ export function ArtistPortal({ owner, username, onSignOut }: { owner: Owner; use
   return (
     <Shell username={username} onSignOut={onSignOut}>
       <p className="text-sm text-muted-foreground mb-4">Signed in as <span className="text-foreground font-medium">{owner.artistName}</span></p>
-      <Tabs defaultValue="single">
+      <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="grid grid-cols-4 w-full mb-6">
           <TabsTrigger value="single">Single</TabsTrigger>
           <TabsTrigger value="album">Album</TabsTrigger>

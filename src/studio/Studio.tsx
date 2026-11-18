@@ -16,6 +16,7 @@ import { RequestsPanel, usePendingCount } from "./Requests";
 import { AnnouncePanel } from "./Announce";
 import { ApplyForm, WaitingScreen, ArtistPortal, Application } from "./ArtistAccess";
 import { kosherTracks } from "@/lib/tracks";
+import { useSharedTab } from "./sharedFiles";
 
 /** "Pop, Rock" counts as two genres. */
 const genresOf = (g?: string | null) =>
@@ -308,6 +309,7 @@ export default function Studio() {
   const [username, setUsername] = useState("");
   const [artists, setArtists] = useState<Artist[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [tab, setTab] = useSharedTab();
 
   const check = useCallback(async () => {
     const { data: sess } = await supabase.auth.getSession();
@@ -374,7 +376,7 @@ export default function Studio() {
       </header>
 
       <main className="max-w-2xl mx-auto px-4 pt-6">
-        <Tabs defaultValue="single">
+        <Tabs value={tab} onValueChange={setTab}>
           <TabsList className={`grid w-full mb-6 ${isAdmin ? "grid-cols-6" : "grid-cols-5"}`}>
             <TabsTrigger value="single">Single</TabsTrigger>
             <TabsTrigger value="album">Album</TabsTrigger>

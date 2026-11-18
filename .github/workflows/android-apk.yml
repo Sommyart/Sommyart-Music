@@ -49,7 +49,7 @@ jobs:
         run: |
           chmod +x gradlew
           set -o pipefail
-          ./gradlew assembleRelease --no-daemon --stacktrace \
+          ./gradlew assembleMusicRelease --no-daemon --stacktrace \
             -PappVersionCode=${{ github.run_number }} \
             -PappVersionName=1.0.${{ github.run_number }} 2>&1 | tee gradle.log || {
               grep -E -A12 "What went wrong|error:|FAILURE|Exception" gradle.log | head -60 | while IFS= read -r l; do echo "::error::$l"; done
@@ -59,7 +59,7 @@ jobs:
       - name: Name the APK
         run: |
           mkdir -p out
-          cp android/app/build/outputs/apk/release/app-release.apk out/SommyartMusic.apk
+          cp android/app/build/outputs/apk/music/release/app-music-release.apk out/SommyartMusic.apk
           cp out/SommyartMusic.apk "out/SommyartMusic-1.0.${{ github.run_number }}.apk"
           ls -lh out
 
@@ -98,3 +98,52 @@ jobs:
             out/SommyartMusic.apk
             out/SommyartMusic-1.0.${{ github.run_number }}.apk
             out/latest.json
+
+      # ---------- Sommyart Studio (the upload app) ----------
+      # Built from the same code with VITE_APP=studio, as its own app (com.sommyart.studio),
+      # so it installs next to the listener app. Songs can be shared to it from a file manager.
+
+      - name: Build Studio web app
+        run: npm run build
+        env:
+          VITE_APP: studio
+          VITE_BUILD_NUMBER: ${{ github.run_number }}
+
+      - name: Copy Studio into Android project
+        run: npx cap copy android
+
+      - name: Build signed Studio APK
+        working-directory: android
+        run: |
+          set -o pipefail
+          ./gradlew assembleStudioRelease --no-daemon --stacktrace \
+            -PappVersionCode=${{ github.run_number }} \
+            -PappVersionName=1.0.${{ github.run_number }} 2>&1 | tee gradle-studio.log || {
+              grep -E -A12 "What went wrong|error:|FAILURE|Exception" gradle-studio.log | head -60 | while IFS= read -r l; do echo "::error::$l"; done
+              exit 1
+            }
+
+      - name: Name the Studio APK
+        run: |
+          mkdir -p studio-out
+          cp android/app/build/outputs/apk/studio/release/app-studio-release.apk studio-out/SommyartStudio.apk
+          cp studio-out/SommyartStudio.apk "studio-out/SommyartStudio-1.0.${{ github.run_number }}.apk"
+          {
+            echo "Latest Android build of Sommyart Studio (uploads), version 1.0.${{ github.run_number }}."
+            echo
+            echo 'Download **SommyartStudio.apk** below on your Android phone and open it. It installs'
+            echo 'next to Sommyart Music. To upload a song, share it from your file manager to Sommyart Studio.'
+          } > studio-out/release-notes.md
+          ls -lh studio-out
+
+      - name: Publish Studio to its own download page
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: studio-latest
+          name: Sommyart Studio for Android (latest)
+          prerelease: false
+          make_latest: false
+          body_path: studio-out/release-notes.md
+          files: |
+            studio-out/SommyartStudio.apk
+            studio-out/SommyartStudio-1.0.${{ github.run_number }}.apk

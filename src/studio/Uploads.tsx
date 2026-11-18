@@ -10,6 +10,7 @@ import {
   titleFromFile, uploadFile, resolveArtist, tooBig,
 } from "./lib";
 import { CollabPicker, saveCollaborators } from "./Collab";
+import { tabFor, useSharedFiles, type SharedBatch } from "./sharedFiles";
 
 /* ------------------------------ Shared fields ----------------------------- */
 
@@ -55,6 +56,18 @@ function StatusIcon({ s }: { s: TrackDraft["status"] }) {
 
 /* --------------------------------- Single --------------------------------- */
 
+/** Songs shared from the phone's file manager land in the matching form (one song: Single, several: Album). */
+function useIncoming(kind: "single" | "album", apply: (batch: SharedBatch) => void) {
+  const { batch, consume } = useSharedFiles();
+  useEffect(() => {
+    if (!batch || tabFor(batch) !== kind && batch.audio.length) return;
+    if (batch.skipped.length) toast.error(`Could not use: ${batch.skipped.join(", ")}`);
+    if (batch.audio.length) apply(batch);
+    consume(batch.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [batch?.id]);
+}
+
 export function SingleUpload({ artists, onPublished, owner }: { artists: Artist[]; onPublished: () => void; owner?: Owner }) {
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
@@ -72,6 +85,14 @@ export function SingleUpload({ artists, onPublished, owner }: { artists: Artist[
     setFile(f);
     if (f && !title) setTitle(titleFromFile(f.name));
   };
+
+  useIncoming("single", (b) => {
+    const f = b.audio[0];
+    if (tooBig(f)) return toast.error(`File is over ${MAX_FILE_MB} MB`);
+    setFile(f);
+    setTitle(titleFromFile(f.name));
+    toast.success(`Added ${f.name}. Fill in the details and publish.`);
+  });
 
   const publish = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -159,7 +180,7 @@ export function AlbumUpload({ artists, onPublished, owner }: { artists: Artist[]
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState("");
 
-  const addFiles = (list: FileList | null) => {
+  const addFiles = (list: FileList | File[] | null) => {
     if (!list) return;
     const incoming = Array.from(list);
     const room = MAX_ALBUM_TRACKS - tracks.length;
@@ -173,6 +194,11 @@ export function AlbumUpload({ artists, onPublished, owner }: { artists: Artist[]
       ...accepted.map((f) => ({ key: `${f.name}-${f.size}-${Math.random()}`, file: f, title: titleFromFile(f.name), status: "idle" as const })),
     ]);
   };
+
+  useIncoming("album", (b) => {
+    addFiles(b.audio);
+    toast.success(`Added ${b.audio.length} songs. Add the album title and publish.`);
+  });
 
   const move = (i: number, d: -1 | 1) =>
     setTracks((t) => {
