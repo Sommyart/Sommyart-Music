@@ -110,7 +110,10 @@ jobs:
           VITE_BUILD_NUMBER: ${{ github.run_number }}
 
       - name: Copy Studio into Android project
-        run: npx cap copy android
+        run: |
+          # The songs bundled for offline listening are not needed in the upload app.
+          rm -rf dist/music
+          npx cap copy android
 
       - name: Build signed Studio APK
         working-directory: android
