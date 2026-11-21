@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.sommyart.music",
+      "sha256_cert_fingerprints": [
+        "3F:F0:24:5F:ED:04:D7:0A:B2:C0:21:8C:50:9D:E3:E6:69:AA:4A:32:54:F9:6F:69:1D:2E:53:C7:EB:70:A5:72"
+      ]
+    }
+  }
+]

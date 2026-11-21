@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Listener app only: song and album links from sommyart-music.vercel.app open in the app when it is installed. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <activity android:name=".MainActivity" android:exported="true">
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="sommyart-music.vercel.app" android:pathPrefix="/song/" />
+                <data android:scheme="https" android:host="sommyart-music.vercel.app" android:pathPrefix="/album/" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

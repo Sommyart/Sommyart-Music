@@ -41,3 +41,16 @@ describe("link preview card", () => {
     expect(out).toContain("<title>Mi Corazón · Sommy &quot;Art&quot; | Sommyart Music</title>");
   });
 });
+
+import { pathFromLink } from "./appLinks";
+describe("opening shared links in the app", () => {
+  it("turns a shared song or album link into the app page", () => {
+    expect(pathFromLink("https://sommyart-music.vercel.app/song/8b17f2bf-bd07-472c-9510-cd19c271b6ac")).toBe("/song/8b17f2bf-bd07-472c-9510-cd19c271b6ac");
+    expect(pathFromLink("https://sommyart-music.vercel.app/album/1a09bcd7-6dc2-4c1f-a6d3-aa0c73035266?1")).toBe("/album/1a09bcd7-6dc2-4c1f-a6d3-aa0c73035266");
+  });
+  it("ignores other links", () => {
+    expect(pathFromLink("https://example.com/song/8b17f2bf-bd07-472c-9510-cd19c271b6ac")).toBeNull();
+    expect(pathFromLink("https://sommyart-music.vercel.app/profile")).toBeNull();
+    expect(pathFromLink("not a link")).toBeNull();
+  });
+});

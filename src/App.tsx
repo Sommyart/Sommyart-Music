@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -43,6 +44,7 @@ import NotificationsScreen from "@/pages/NotificationsScreen";
 import Profile from "@/pages/Profile";
 import { PendingDestinationHandler } from "./components/PendingDestinationHandler";
 import { InstallAppBanner } from "@/components/InstallAppBanner";
+import { listenForAppLinks } from "@/lib/appLinks";
 
 
 const queryClient = new QueryClient();
@@ -50,6 +52,8 @@ const queryClient = new QueryClient();
 function AppShell() {
   const { currentTrack, isPlaying, togglePlay, handleNext, handlePrev, mainTracks, songsLoading, playTrack, playlist } = useMusicPlayerContext();
   const navigate = useNavigate();
+  // Song and album links tapped elsewhere (WhatsApp, browser) open on the right page in the app.
+  useEffect(() => listenForAppLinks((path) => navigate(path)), [navigate]);
   useDailyNotification();
   useNewSongAlerts();
   usePushRegistration();
