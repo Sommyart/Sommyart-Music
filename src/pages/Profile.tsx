@@ -6,20 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { useOnline } from "@/hooks/useOnline";
-import {
-  cleanCode,
-  codeLooksComplete,
-  emailProblem,
-  ensureProfile,
-  finishAddEmail,
-  finishPasswordChange,
-  hasPinLogin,
-  isPinAccount,
-  passwordProblem,
-  sendPasswordCode,
-  startAddEmail,
-  type Profile as ProfileRow,
-} from "@/lib/account";
+import { ensureProfile, type Profile as ProfileRow } from "@/lib/account";
 import { uploadAvatar } from "@/lib/avatar";
 
 // The generated types lag behind the schema (new profile columns).
@@ -41,7 +28,6 @@ export default function Profile() {
   const navigate = useNavigate();
   const online = useOnline();
   const [userId, setUserId] = useState<string | null>(null);
-  const [email, setEmail] = useState<string | null>(null);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
@@ -50,25 +36,10 @@ export default function Profile() {
   const [stats, setStats] = useState<Partial<Record<StatKey, number>>>({});
   const fileInput = useRef<HTMLInputElement>(null);
 
-  // Password change (email accounts)
-  const [codeSent, setCodeSent] = useState(false);
-  const [code, setCode] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [changing, setChanging] = useState(false);
-
   // New recovery codes (username-and-PIN accounts)
   const [pin, setPin] = useState("");
   const [newCodes, setNewCodes] = useState<string[] | null>(null);
   const [gettingCodes, setGettingCodes] = useState(false);
-
-  // Adding an email to a username-and-PIN account
-  const [hasPin, setHasPin] = useState(false);
-  const [addEmail, setAddEmail] = useState("");
-  const [addPassword, setAddPassword] = useState("");
-  const [addPin, setAddPin] = useState("");
-  const [addCode, setAddCode] = useState("");
-  const [addCodeSent, setAddCodeSent] = useState(false);
-  const [adding, setAdding] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -81,11 +52,6 @@ export default function Profile() {
       }
       if (cancelled) return;
       setUserId(user.id);
-      setEmail(user.email ?? null);
-      setHasPin(isPinAccount(user.email));
-      hasPinLogin().then((yes) => {
-        if (!cancelled && yes) setHasPin(true);
-      });
       const row = await ensureProfile();
       if (cancelled) return;
       setProfile(row);
@@ -106,46 +72,6 @@ export default function Profile() {
   }, []);
 
   const fail = (title: string, description?: string) => toast({ title, description, variant: "destructive" });
-  const realEmail = !!email && !isPinAccount(email);
-
-  const sendAddEmailCode = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!profile) return;
-    const badEmail = emailProblem(addEmail);
-    if (badEmail) return fail("Check your email", badEmail);
-    const badPassword = passwordProblem(addPassword);
-    if (badPassword) return fail("Check your password", badPassword);
-    if (!/^\d{4}$/.test(addPin)) return fail("Enter your PIN", "Your current 4-digit PIN is needed.");
-    setAdding(true);
-    try {
-      await startAddEmail(profile.username, addPin, addEmail);
-      setHasPin(true);
-      setAddCodeSent(true);
-      toast({ title: "Code sent", description: `Check ${addEmail.trim()}. It may land in spam.` });
-    } catch (err: any) {
-      fail("Could not add the email", err?.message);
-    } finally {
-      setAdding(false);
-    }
-  };
-
-  const confirmAddEmail = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAdding(true);
-    try {
-      await finishAddEmail(addEmail, addCode, addPassword);
-      setEmail(addEmail.trim().toLowerCase());
-      setAddCodeSent(false);
-      setAddCode("");
-      setAddPassword("");
-      setAddPin("");
-      toast({ title: "Email added", description: "You can now sign in with your email, or with your username and PIN." });
-    } catch (err: any) {
-      fail("Could not confirm the email", err?.message);
-    } finally {
-      setAdding(false);
-    }
-  };
   const shownName = profile?.display_name || profile?.username || "Listener";
 
   const saveName = async () => {
@@ -173,40 +99,6 @@ export default function Profile() {
     } finally {
       setUploading(false);
       if (fileInput.current) fileInput.current.value = "";
-    }
-  };
-
-  const sendCode = async () => {
-    if (!email) return;
-    setChanging(true);
-    try {
-      await sendPasswordCode(email);
-      setCodeSent(true);
-      toast({ title: "Code sent", description: `Check ${email}. It may land in spam.` });
-    } catch (err: any) {
-      fail("Could not send the code", err?.message);
-    } finally {
-      setChanging(false);
-    }
-  };
-
-  const changePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email) return;
-    if (!codeLooksComplete(code)) return fail("Enter the code", "It is the number in the email we sent.");
-    const bad = passwordProblem(newPassword);
-    if (bad) return fail("Check your password", bad);
-    setChanging(true);
-    try {
-      await finishPasswordChange(email, code, newPassword);
-      setCodeSent(false);
-      setCode("");
-      setNewPassword("");
-      toast({ title: "Password changed" });
-    } catch (err: any) {
-      fail("Could not change the password", err?.message);
-    } finally {
-      setChanging(false);
     }
   };
 
@@ -271,7 +163,7 @@ export default function Profile() {
               <div>
                 <p className="font-display tracking-wider text-lg">{shownName}</p>
                 <p className="text-xs text-muted-foreground">
-                  {uploading ? "Uploading photo…" : [hasPin ? `@${profile?.username ?? ""}` : "", realEmail ? email : ""].filter(Boolean).join(" · ")}
+                  {uploading ? "Uploading photo…" : profile?.username ? `@${profile.username}` : ""}
                 </p>
               </div>
             </section>
@@ -297,82 +189,7 @@ export default function Profile() {
               </div>
             </section>
 
-            {!realEmail && (
-              <section className={card}>
-                <h2 className="text-sm font-display tracking-wider">Add an email (optional)</h2>
-                <p className="text-xs text-muted-foreground">
-                  Add an email and password to sign in either way, and to reset things by email if you forget.
-                  Your username and PIN keep working.
-                </p>
-                {!addCodeSent ? (
-                  <form onSubmit={sendAddEmailCode} className="space-y-2">
-                    <Input type="email" inputMode="email" placeholder="you@example.com" value={addEmail} onChange={(e) => setAddEmail(e.target.value)} autoComplete="email" aria-label="Email" className={field} />
-                    <Input type="password" placeholder="New password (8 or more characters)" value={addPassword} onChange={(e) => setAddPassword(e.target.value)} autoComplete="new-password" aria-label="New password" className={field} />
-                    <Input type="password" inputMode="numeric" maxLength={4} placeholder="Current PIN" value={addPin} onChange={(e) => setAddPin(e.target.value.replace(/\D/g, ""))} aria-label="Current PIN" className={field} />
-                    <Button type="submit" variant="outline" disabled={adding || !online}>{adding ? "Please wait…" : "Send code"}</Button>
-                  </form>
-                ) : (
-                  <form onSubmit={confirmAddEmail} className="space-y-2">
-                    <p className="text-xs text-muted-foreground break-all">
-                      We emailed {addEmail.trim()}. Enter the code from the email. If it has a link instead, open the link, come back here and tap Confirm.
-                    </p>
-                    <Input
-                      inputMode="numeric"
-                      placeholder="Code from the email"
-                      value={addCode}
-                      onChange={(e) => setAddCode(cleanCode(e.target.value))}
-                      autoComplete="one-time-code"
-                      aria-label="Code from the email"
-                      className={`${field} text-center font-mono tracking-[0.3em]`}
-                    />
-                    <div className="flex gap-2">
-                      <Button type="submit" disabled={adding} className="flex-1">{adding ? "Please wait…" : "Confirm email"}</Button>
-                      <Button type="button" variant="ghost" onClick={() => { setAddCodeSent(false); setAddCode(""); }}>Back</Button>
-                    </div>
-                  </form>
-                )}
-              </section>
-            )}
-
-            {realEmail && (
-              <section className={card}>
-                <h2 className="text-sm font-display tracking-wider">Email and password</h2>
-                <p className="text-sm text-muted-foreground break-all">{email}</p>
-                {!codeSent ? (
-                  <Button variant="outline" onClick={sendCode} disabled={changing || !online}>
-                    {changing ? "Sending…" : "Change password"}
-                  </Button>
-                ) : (
-                  <form onSubmit={changePassword} className="space-y-2">
-                    <p className="text-xs text-muted-foreground">We emailed you a code. Enter it with your new password.</p>
-                    <Input
-                      inputMode="numeric"
-                      placeholder="Code from the email"
-                      value={code}
-                      onChange={(e) => setCode(cleanCode(e.target.value))}
-                      autoComplete="one-time-code"
-                      aria-label="Code from the email"
-                      className={`${field} text-center font-mono tracking-[0.3em]`}
-                    />
-                    <Input
-                      type="password"
-                      placeholder="New password (8 or more characters)"
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      autoComplete="new-password"
-                      aria-label="New password"
-                      className={field}
-                    />
-                    <div className="flex gap-2">
-                      <Button type="submit" disabled={changing} className="flex-1">{changing ? "Please wait…" : "Change password"}</Button>
-                      <Button type="button" variant="ghost" onClick={() => { setCodeSent(false); setCode(""); setNewPassword(""); }}>Cancel</Button>
-                    </div>
-                  </form>
-                )}
-              </section>
-            )}
-
-            {hasPin && (
+            {profile && (
               <section className={card}>
                 <h2 className="text-sm font-display tracking-wider">Recovery codes</h2>
                 <p className="text-xs text-muted-foreground">
