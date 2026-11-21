@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Autoplay from "embla-carousel-autoplay";
 import { Play, Sparkles } from "lucide-react";
 import { Track } from "@/lib/tracks";
-import { extractCoverArt } from "@/lib/extractCoverArt";
+import { useSongCover } from "@/hooks/useSongCover";
 import {
   Carousel,
   CarouselContent,
@@ -16,11 +16,7 @@ interface Props {
 }
 
 function PromoSlide({ track, onPlay, isNew }: { track: Track; onPlay: () => void; isNew?: boolean }) {
-  const [cover, setCover] = useState<string | null>(null);
-
-  useEffect(() => {
-    extractCoverArt(track.audioUrl).then((c) => c && setCover(c));
-  }, [track.audioUrl]);
+  const cover = useSongCover(track);
 
   return (
     <button
@@ -29,7 +25,7 @@ function PromoSlide({ track, onPlay, isNew }: { track: Track; onPlay: () => void
     >
       <div className="relative w-full h-40 rounded-xl overflow-hidden neon-border bg-secondary/40">
         <img
-          src={cover || track.coverUrl}
+          src={cover}
           alt={track.title}
           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
           loading="lazy"

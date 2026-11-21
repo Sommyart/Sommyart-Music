@@ -2,7 +2,6 @@ import { Play, Pause, Download, Heart, MoreVertical, ListMusic, ListEnd, ListPlu
 import { DownloadedBadge } from "@/components/DownloadCollectionButton";
 import { Track } from "@/lib/tracks";
 import { useState, useEffect } from "react";
-import { extractCoverArt } from "@/lib/extractCoverArt";
 import { useDownloadContext } from "@/contexts/DownloadContext";
 import { useFavouritesContext } from "@/contexts/FavouritesContext";
 import { useMusicPlayerContext } from "@/contexts/MusicPlayerContext";
@@ -15,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "@/hooks/use-toast";
 import { shareTrack } from "@/lib/share";
+import { useSongCover } from "@/hooks/useSongCover";
 
 interface Props {
   track: Track;
@@ -25,19 +25,12 @@ interface Props {
 }
 
 export function TrackItem({ track, index, isActive, isPlaying, onPlay }: Props) {
-  const [cover, setCover] = useState<string | null>(null);
   const { downloadTrack, removeDownload, isDownloaded, isDownloading } = useDownloadContext();
   const { isFavourite, toggleFavourite } = useFavouritesContext();
   const { playNext, playLast } = useMusicPlayerContext();
   const { openPlaylistPicker } = usePlaylistPicker();
 
-  useEffect(() => {
-    extractCoverArt(track.audioUrl).then((c) => {
-      if (c) setCover(c);
-    });
-  }, [track.audioUrl]);
-
-  const displayCover = cover || track.coverUrl;
+  const displayCover = useSongCover(track);
   const downloaded = isDownloaded(track.id);
   const downloading = isDownloading(track.id);
   const fav = isFavourite(track.id);

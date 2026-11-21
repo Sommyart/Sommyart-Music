@@ -2,10 +2,10 @@ import { Download, Trash2, Play, Pause, HardDrive } from "lucide-react";
 import { useDownloadContext } from "@/contexts/DownloadContext";
 import { useMusicPlayerContext } from "@/contexts/MusicPlayerContext";
 import { useState, useEffect } from "react";
-import { extractCoverArt } from "@/lib/extractCoverArt";
 import { Track } from "@/lib/tracks";
 import { Progress } from "@/components/ui/progress";
 import { SEO } from "@/components/SEO";
+import { useSongCover } from "@/hooks/useSongCover";
 
 function formatBytes(bytes: number): string {
   if (!bytes || bytes < 1024) return `${bytes || 0} B`;
@@ -18,13 +18,8 @@ function formatBytes(bytes: number): string {
 
 function DownloadedTrackItem({ track, list, onRemove }: { track: Track & { downloadedAt: string }; list: Track[]; onRemove: () => void }) {
   const { currentTrack, isPlaying, playContext } = useMusicPlayerContext();
-  const [cover, setCover] = useState<string | null>(null);
 
-  useEffect(() => {
-    extractCoverArt(track.audioUrl).then((c) => { if (c) setCover(c); });
-  }, [track.audioUrl]);
-
-  const displayCover = cover || track.coverUrl;
+  const displayCover = useSongCover(track);
   const isActive = currentTrack?.id === track.id;
   const playing = isActive && isPlaying;
 

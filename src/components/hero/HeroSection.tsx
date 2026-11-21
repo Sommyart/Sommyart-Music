@@ -1,7 +1,7 @@
 import { Play } from "lucide-react";
 import { Track } from "@/lib/tracks";
 import { useEffect, useState } from "react";
-import { extractCoverArt } from "@/lib/extractCoverArt";
+import { useSongCover } from "@/hooks/useSongCover";
 
 interface Props {
   track: Track;
@@ -10,15 +10,8 @@ interface Props {
 }
 
 export function HeroSection({ track, isPlaying, onPlay }: Props) {
-  const [coverArt, setCoverArt] = useState<string | null>(null);
 
-  useEffect(() => {
-    extractCoverArt(track.audioUrl).then((cover) => {
-      if (cover) setCoverArt(cover);
-    });
-  }, [track.audioUrl]);
-
-  const displayCover = coverArt || track.coverUrl;
+  const displayCover = useSongCover(track);
 
   return (
     <section className="relative px-6 pt-6 pb-8 overflow-hidden">
