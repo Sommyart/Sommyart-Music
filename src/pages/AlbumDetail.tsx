@@ -9,6 +9,7 @@ import { useAlbum } from "@/hooks/useAlbums";
 import { useMusicPlayerContext } from "@/contexts/MusicPlayerContext";
 import { TrackItem } from "@/components/playlist/TrackItem";
 import { SEO } from "@/components/SEO";
+import { albumLink } from "@/lib/publicLink";
 
 const AlbumDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -45,7 +46,7 @@ const AlbumDetail = () => {
     navigate("/player", { replace: true });
   }, [autoplay, started, authed, tracks.length]);
 
-  const shareUrl = `${window.location.origin}/album/${id}`;
+  const shareUrl = albumLink(id ?? "");
   const handleShare = async () => {
     if (!album) return;
     try {

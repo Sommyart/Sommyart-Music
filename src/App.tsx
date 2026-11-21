@@ -42,6 +42,7 @@ import { NotificationsProvider } from "@/contexts/NotificationsContext";
 import NotificationsScreen from "@/pages/NotificationsScreen";
 import Profile from "@/pages/Profile";
 import { PendingDestinationHandler } from "./components/PendingDestinationHandler";
+import { InstallAppBanner } from "@/components/InstallAppBanner";
 
 
 const queryClient = new QueryClient();
@@ -72,6 +73,7 @@ function AppShell() {
   });
   return (
     <>
+      <InstallAppBanner />
       <div key={pathname}>
       <Routes>
 

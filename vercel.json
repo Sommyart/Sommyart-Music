@@ -1,6 +1,8 @@
 {
   "rewrites": [
     { "source": "/download", "destination": "/download/index.html" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/song/:id", "destination": "/api/share?kind=song&id=:id" },
+    { "source": "/album/:id", "destination": "/api/share?kind=album&id=:id" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }

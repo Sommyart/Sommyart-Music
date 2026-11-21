@@ -7,6 +7,7 @@ import { SEO } from "@/components/SEO";
 import { setPendingDestination } from "@/lib/pendingDestination";
 import { toast } from "@/hooks/use-toast";
 import { Track } from "@/lib/tracks";
+import { songLink } from "@/lib/publicLink";
 
 const SongDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -41,7 +42,7 @@ const SongDetail = () => {
     navigate(`/player`, { replace: true });
   }, [autoplay, started, track, authed, playSingle, navigate]);
 
-  const shareUrl = `${window.location.origin}/song/${id}`;
+  const shareUrl = songLink(id ?? "");
 
   const handleShare = async () => {
     if (!track) return;
