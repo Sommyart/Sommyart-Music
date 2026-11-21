@@ -26,7 +26,9 @@ async function lookup(kind: "song" | "album", id: string): Promise<Meta | null> 
   const row = (await res.json())?.[0];
   if (!row) return null;
   const artist = kind === "song" ? row.artist : row.artist_name;
-  const image = typeof row.cover_art_url === "string" && row.cover_art_url.startsWith("https://") ? row.cover_art_url : FALLBACK_IMAGE;
+  const cover = typeof row.cover_art_url === "string" && row.cover_art_url.startsWith("https://") ? row.cover_art_url : null;
+  // A small JPEG copy, so WhatsApp and others accept it as the preview picture.
+  const image = cover ? `${SITE}/api/og-image?src=${encodeURIComponent(cover)}` : FALLBACK_IMAGE;
   return {
     title: `${row.title} · ${artist}`,
     description: kind === "song"
@@ -49,6 +51,11 @@ export function withMeta(html: string, m: Meta): string {
     `<meta property="og:title" content="${esc(m.title)}">`,
     `<meta property="og:description" content="${esc(m.description)}">`,
     `<meta property="og:image" content="${esc(m.image)}">`,
+    `<meta property="og:image:secure_url" content="${esc(m.image)}">`,
+    `<meta property="og:image:type" content="${m.image.includes("/api/og-image") ? "image/jpeg" : "image/png"}">`,
+    `<meta property="og:image:width" content="600">`,
+    `<meta property="og:image:height" content="600">`,
+    `<meta property="og:image:alt" content="${esc(m.title)}">`,
     `<meta name="twitter:card" content="summary_large_image">`,
     `<meta name="twitter:title" content="${esc(m.title)}">`,
     `<meta name="twitter:description" content="${esc(m.description)}">`,
