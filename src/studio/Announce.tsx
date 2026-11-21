@@ -30,6 +30,8 @@ export function AnnouncePanel() {
     setBusy(true);
     const { error } = await supabase.from("app_notifications").insert({
       kind: "announcement", title: title.trim(), body: body.trim(), route: "/notifications",
+      // Also scrolls across the listeners' home screen for two days.
+      show_until: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
     });
     setBusy(false);
     if (error) return toast.error("Could not post it", { description: error.message });

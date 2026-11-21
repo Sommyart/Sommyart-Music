@@ -12,6 +12,7 @@ import { UpdateBanner } from "@/components/UpdateBanner";
 
 import { useMusicPlayerContext } from "@/contexts/MusicPlayerContext";
 import { Track } from "@/lib/tracks";
+import { AnnouncementTicker } from "@/components/AnnouncementTicker";
 
 const Index = () => {
   const { playlist, currentTrackIndex, isPlaying, playTrack, newestTrack, newestTracks, songsLoading, kosherTracks, mainTracks } = useMusicPlayerContext();
@@ -102,6 +103,8 @@ const Index = () => {
       </div>
 
       <UpdateBanner />
+
+      <AnnouncementTicker />
 
       {/* Featured Picks Ad Banner — also features newest releases */}
       <AdBanner tracks={mainTracks} newReleases={newestTracks} onPlay={handlePlayTrack} />
