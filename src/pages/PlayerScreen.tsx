@@ -46,7 +46,8 @@ const PlayerScreen = () => {
   const trackTitle = track ? `${track.title} — ${track.artist}` : "Now Playing";
 
   return (
-    <div className="min-h-screen flex flex-col relative">
+    // With lyrics showing, the screen is fixed to the window height and only the lyrics scroll.
+    <div className={`${lyricsOn ? "h-[100dvh] overflow-hidden" : "min-h-screen"} flex flex-col relative`}>
       <SEO
         title={`${trackTitle} | Sommyart Music Player`}
         description={`Holographic full-screen player with lyrics and waveform visualizer. ${track ? `Now playing ${track.title} by ${track.artist}.` : "Stream exclusive neon tracks on Sommyart Music."}`}

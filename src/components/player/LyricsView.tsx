@@ -7,6 +7,11 @@ interface Props {
   currentTime: number;
 }
 
+/** Where the lyrics box should scroll to so the current line sits in its middle. */
+export function lyricScrollTop(lineTop: number, lineHeight: number, boxHeight: number): number {
+  return Math.max(0, lineTop + lineHeight / 2 - boxHeight / 2);
+}
+
 export function LyricsView({ lyrics, currentTime }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const lineRefs = useRef<(HTMLParagraphElement | null)[]>([]);
@@ -31,8 +36,10 @@ export function LyricsView({ lyrics, currentTime }: Props) {
   useEffect(() => {
     if (!autoScroll) return;
     const el = lineRefs.current[activeIndex];
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    const box = containerRef.current;
+    if (el && box) {
+      // Scroll only the lyrics box, never the whole page, so the player stays still.
+      box.scrollTo({ top: lyricScrollTop(el.offsetTop, el.offsetHeight, box.clientHeight), behavior: "smooth" });
     }
   }, [activeIndex, autoScroll]);
 
