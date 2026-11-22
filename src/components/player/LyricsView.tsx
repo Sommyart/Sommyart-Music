@@ -12,6 +12,10 @@ export function lyricScrollTop(lineTop: number, lineHeight: number, boxHeight: n
   return Math.max(0, lineTop + lineHeight / 2 - boxHeight / 2);
 }
 
+/** Matches the two-column player layout (Tailwind's lg breakpoint). */
+const isWideScreen = () =>
+  typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(min-width: 1024px)").matches;
+
 export function LyricsView({ lyrics, currentTime }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const lineRefs = useRef<(HTMLParagraphElement | null)[]>([]);
@@ -37,9 +41,13 @@ export function LyricsView({ lyrics, currentTime }: Props) {
     if (!autoScroll) return;
     const el = lineRefs.current[activeIndex];
     const box = containerRef.current;
-    if (el && box) {
-      // Scroll only the lyrics box, never the whole page, so the player stays still.
+    if (!el || !box) return;
+    if (isWideScreen()) {
+      // Computers: scroll only the lyrics box, so the player beside it stays still.
       box.scrollTo({ top: lyricScrollTop(el.offsetTop, el.offsetHeight, box.clientHeight), behavior: "smooth" });
+    } else {
+      // Phones: as before.
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
     }
   }, [activeIndex, autoScroll]);
 
