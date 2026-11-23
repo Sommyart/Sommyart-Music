@@ -5,7 +5,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Clock, ImagePlus, Loader2, LogOut, Mic2, Pencil, PauseCircle, User, XCircle } from "lucide-react";
+import { Clock, ImagePlus, Loader2, LogOut, Mic2, Pencil, PauseCircle, User, XCircle, Music2, Disc3, Library } from "lucide-react";
+
+/** A tab: icon above a short name, roomy enough to read on a phone. */
+const TAB = "flex-col gap-1 h-auto py-2 px-1 text-xs whitespace-normal";
 import { supabase, Artist, Owner, shrinkImage, uploadFile } from "./lib";
 import { AlbumUpload, SingleUpload } from "./Uploads";
 import { EditSongDialog, SongRow, AlbumRow } from "./Editors";
@@ -290,11 +293,11 @@ export function ArtistPortal({ owner, username, onSignOut }: { owner: Owner; use
     <Shell username={username} onSignOut={onSignOut}>
       <p className="text-sm text-muted-foreground mb-4">Signed in as <span className="text-foreground font-medium">{owner.artistName}</span></p>
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="grid grid-cols-4 w-full mb-6">
-          <TabsTrigger value="single">Single</TabsTrigger>
-          <TabsTrigger value="album">Album</TabsTrigger>
-          <TabsTrigger value="tracks">My tracks</TabsTrigger>
-          <TabsTrigger value="profile">Profile</TabsTrigger>
+        <TabsList className="grid grid-cols-4 w-full h-auto gap-1 mb-6">
+          <TabsTrigger value="single" className={TAB}><Music2 className="w-4 h-4" />Single</TabsTrigger>
+          <TabsTrigger value="album" className={TAB}><Disc3 className="w-4 h-4" />Album</TabsTrigger>
+          <TabsTrigger value="tracks" className={TAB}><Library className="w-4 h-4" />My tracks</TabsTrigger>
+          <TabsTrigger value="profile" className={TAB}><User className="w-4 h-4" />Profile</TabsTrigger>
         </TabsList>
         <TabsContent value="single"><SingleUpload artists={artists} owner={owner} onPublished={bump} /></TabsContent>
         <TabsContent value="album"><AlbumUpload artists={artists} owner={owner} onPublished={bump} /></TabsContent>

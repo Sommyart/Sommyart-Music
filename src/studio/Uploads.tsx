@@ -4,7 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { ArrowDown, ArrowUp, ImagePlus, Loader2, Music2, UploadCloud, X, CheckCircle2, AlertCircle } from "lucide-react";
+import { ArrowDown, ArrowUp, ImagePlus, Loader2, Music2, UploadCloud, X, CheckCircle2, AlertCircle, UserPlus } from "lucide-react";
+import { ArtistFormDialog } from "./Artists";
 import {
   supabase, MAX_ALBUM_TRACKS, MAX_FILE_MB, AUDIO_ACCEPT, Artist, TrackDraft, Owner,
   titleFromFile, uploadFile, resolveArtist, tooBig,
@@ -35,14 +36,50 @@ export function CoverPicker({ file, onChange }: { file: File | null; onChange: (
   );
 }
 
-export function ArtistField({ value, onChange, artists }: { value: string; onChange: (v: string) => void; artists: Artist[] }) {
-  const isNew = value.trim() && !artists.some((a) => a.name.toLowerCase() === value.trim().toLowerCase());
+/** Pick the artist from the saved list, or create a new one with picture and description. */
+export function ArtistField({
+  value, onChange, artists, onArtistCreated,
+}: { value: string; onChange: (v: string) => void; artists: Artist[]; onArtistCreated?: () => void }) {
+  const [creating, setCreating] = useState(false);
+  const [extra, setExtra] = useState<Artist[]>([]);
+  const all = useMemo(() => {
+    const seen = new Set(artists.map((a) => a.id));
+    return [...artists, ...extra.filter((a) => !seen.has(a.id))].sort((a, b) => a.name.localeCompare(b.name));
+  }, [artists, extra]);
+  const known = all.some((a) => a.name.toLowerCase() === value.trim().toLowerCase());
   return (
     <div className="space-y-2">
-      <Label htmlFor="artist">Artist name</Label>
-      <Input id="artist" list="artist-list" value={value} onChange={(e) => onChange(e.target.value)} placeholder="Sommyart" required />
-      <datalist id="artist-list">{artists.map((a) => <option key={a.id} value={a.name} />)}</datalist>
-      {isNew && <p className="text-xs text-primary">New artist. A profile will be created when you publish.</p>}
+      <Label htmlFor="artist">Artist</Label>
+      <div className="flex gap-2">
+        <select
+          id="artist"
+          value={known ? all.find((a) => a.name.toLowerCase() === value.trim().toLowerCase())!.name : ""}
+          onChange={(e) => onChange(e.target.value)}
+          required
+          className="flex-1 min-w-0 h-10 rounded-md border border-input bg-background px-3 text-sm"
+        >
+          <option value="" disabled>Choose an artist…</option>
+          {all.map((a) => <option key={a.id} value={a.name}>{a.name}</option>)}
+        </select>
+        <Button type="button" variant="outline" onClick={() => setCreating(true)} className="shrink-0">
+          <UserPlus className="w-4 h-4 mr-1.5" /> New
+        </Button>
+      </div>
+      {value.trim() && !known && (
+        <p className="text-xs text-amber-400">"{value.trim()}" is not saved as an artist yet. Choose one from the list or tap New.</p>
+      )}
+      {creating && (
+        <ArtistFormDialog
+          artist={null}
+          existingNames={all.map((a) => a.name)}
+          onClose={() => setCreating(false)}
+          onSaved={(saved) => {
+            setExtra((x) => [...x, { id: saved.id, name: saved.name } as Artist]);
+            onChange(saved.name);
+            onArtistCreated?.();
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -5,7 +5,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Copy, Loader2, LogOut, Mic2, Pencil, Trash2, AlertCircle, KeyRound } from "lucide-react";
+import { Copy, Loader2, LogOut, Mic2, Pencil, Trash2, AlertCircle, KeyRound, Music2, Disc3, Users, Inbox, Megaphone, Library as LibraryIcon } from "lucide-react";
+
+/** A Studio tab: icon above a short name, roomy enough to read on a phone. */
+const TAB = "flex-col gap-1 h-auto py-2 px-1 text-xs whitespace-normal";
 
 import { supabase, Artist, Owner } from "./lib";
 import { EditSongDialog, EditAlbumDialog } from "./Editors";
@@ -377,18 +380,19 @@ export default function Studio() {
 
       <main className="max-w-2xl mx-auto px-4 pt-6">
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className={`grid w-full mb-6 ${isAdmin ? "grid-cols-6" : "grid-cols-5"}`}>
-            <TabsTrigger value="single">Single</TabsTrigger>
-            <TabsTrigger value="album">Album</TabsTrigger>
-            <TabsTrigger value="library">Library</TabsTrigger>
-            <TabsTrigger value="artists">Artists</TabsTrigger>
-            <TabsTrigger value="requests" className="relative">
-              Requests
+          {/* Three per row on phones (two rows), all in one row on wider screens; icon above each name. */}
+          <TabsList className={`grid w-full h-auto gap-1 mb-6 grid-cols-3 ${isAdmin ? "sm:grid-cols-6" : "sm:grid-cols-5"}`}>
+            <TabsTrigger value="single" className={TAB}><Music2 className="w-4 h-4" />Single</TabsTrigger>
+            <TabsTrigger value="album" className={TAB}><Disc3 className="w-4 h-4" />Album</TabsTrigger>
+            <TabsTrigger value="library" className={TAB}><LibraryIcon className="w-4 h-4" />Library</TabsTrigger>
+            <TabsTrigger value="artists" className={TAB}><Users className="w-4 h-4" />Artists</TabsTrigger>
+            <TabsTrigger value="requests" className={`${TAB} relative`}>
+              <Inbox className="w-4 h-4" />Requests
               {pending > 0 && (
-                <span aria-label={`${pending} waiting`} className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] leading-4 text-center">{pending}</span>
+                <span aria-label={`${pending} waiting`} className="absolute top-1 right-1 min-w-4 h-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] leading-4 text-center">{pending}</span>
               )}
             </TabsTrigger>
-            {isAdmin && <TabsTrigger value="announce">Announce</TabsTrigger>}
+            {isAdmin && <TabsTrigger value="announce" className={TAB}><Megaphone className="w-4 h-4" />Announce</TabsTrigger>}
           </TabsList>
           <TabsContent value="single"><SingleUpload artists={artists} onPublished={bump} /></TabsContent>
           <TabsContent value="album"><AlbumUpload artists={artists} onPublished={bump} /></TabsContent>

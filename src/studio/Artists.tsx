@@ -5,10 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { ImagePlus, Loader2, Pencil, Trash2, User } from "lucide-react";
+import { ImagePlus, Loader2, Pencil, Trash2, User, UserPlus } from "lucide-react";
 import { supabase, uploadFile, shrinkImage } from "./lib";
 
-type ArtistRow = {
+export type ArtistRow = {
   id: string;
   name: string;
   bio: string | null;
@@ -21,12 +21,18 @@ type ArtistRow = {
 const BIO_MAX = 1500;
 const PLACEHOLDER = "/images/logo.png";
 
-function EditArtistDialog({
-  artist, onClose, onSaved,
-}: { artist: ArtistRow; onClose: () => void; onSaved: () => void }) {
-  const [bio, setBio] = useState(artist.bio ?? "");
-  const [origin, setOrigin] = useState(artist.origin ?? "");
-  const [genre, setGenre] = useState(artist.genre ?? "");
+/**
+ * Create a new artist (artist = null) or edit an existing one: picture, name (new only),
+ * description, genre and location. onSaved receives the saved artist.
+ */
+export function ArtistFormDialog({
+  artist, onClose, onSaved, existingNames = [],
+}: { artist: ArtistRow | null; onClose: () => void; onSaved: (saved: ArtistRow) => void; existingNames?: string[] }) {
+  const creating = !artist;
+  const [name, setName] = useState("");
+  const [bio, setBio] = useState(artist?.bio ?? "");
+  const [origin, setOrigin] = useState(artist?.origin ?? "");
+  const [genre, setGenre] = useState(artist?.genre ?? "");
   const [photo, setPhoto] = useState<File | null>(null);
   const [removePhoto, setRemovePhoto] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -34,10 +40,18 @@ function EditArtistDialog({
   const preview = useMemo(() => (photo ? URL.createObjectURL(photo) : null), [photo]);
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
 
-  const shown = preview || (removePhoto ? null : artist.image_url) || PLACEHOLDER;
+  const shown = preview || (removePhoto ? null : artist?.image_url) || PLACEHOLDER;
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
+    const finalName = creating ? name.trim().replace(/\s+/g, " ") : artist.name;
+    if (creating) {
+      if (!finalName) return toast.error("Add the artist's name");
+      if (finalName.length > 60) return toast.error("Name is too long", { description: "Use 60 characters or fewer." });
+      if (existingNames.some((n) => n.toLowerCase() === finalName.toLowerCase())) {
+        return toast.error("That artist already exists", { description: "Pick them from the list instead." });
+      }
+    }
     setBusy(true);
     try {
       const patch: Record<string, unknown> = {
@@ -46,12 +60,15 @@ function EditArtistDialog({
         genre: genre.trim() || null,
         updated_at: new Date().toISOString(),
       };
-      if (photo) patch.image_url = await uploadFile("covers", await shrinkImage(photo), `${artist.name}_photo`);
+      if (photo) patch.image_url = await uploadFile("covers", await shrinkImage(photo), `${finalName}_photo`);
       else if (removePhoto) patch.image_url = null;
-      const { error } = await supabase.from("artists").update(patch).eq("id", artist.id);
-      if (error) throw new Error(error.message);
-      toast.success("Artist updated", { description: artist.name });
-      onSaved();
+      const cols = "id,name,bio,image_url,origin,genre,owner_user_id";
+      const { data, error } = creating
+        ? await supabase.from("artists").insert({ ...patch, name: finalName }).select(cols).single()
+        : await supabase.from("artists").update(patch).eq("id", artist.id).select(cols).single();
+      if (error || !data) throw new Error(error?.message || "Nothing was saved");
+      toast.success(creating ? "Artist created" : "Artist updated", { description: finalName });
+      onSaved(data as ArtistRow);
       onClose();
     } catch (err: any) {
       toast.error("Could not save", { description: err.message });
@@ -64,16 +81,26 @@ function EditArtistDialog({
     <Dialog open onOpenChange={(o) => !o && !busy && onClose()}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Edit {artist.name}</DialogTitle>
-          <DialogDescription>The photo and description show on the artist's page in the app.</DialogDescription>
+          <DialogTitle>{creating ? "New artist" : `Edit ${artist.name}`}</DialogTitle>
+          <DialogDescription>
+            {creating
+              ? "Once created, pick this artist when you upload, and their songs appear under their name."
+              : "The photo and description show on the artist's page in the app."}
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={save} className="space-y-4">
+          {creating && (
+            <div className="space-y-2">
+              <Label htmlFor="new-artist-name">Artist name</Label>
+              <Input id="new-artist-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={60} placeholder="Stage name" autoFocus />
+            </div>
+          )}
           <div className="space-y-2">
             <Label>Profile picture</Label>
             <label className="flex items-center gap-4 cursor-pointer glass rounded-xl p-3 hover:border-primary/40 transition">
               <img src={shown} alt="" className="w-20 h-20 rounded-full object-cover bg-muted shrink-0" />
               <div className="text-sm flex-1 min-w-0">
-                <div className="font-medium flex items-center gap-1"><ImagePlus className="w-4 h-4" /> {photo ? "New picture chosen" : "Change picture"}</div>
+                <div className="font-medium flex items-center gap-1"><ImagePlus className="w-4 h-4" /> {photo ? "New picture chosen" : creating ? "Choose picture" : "Change picture"}</div>
                 <div className="text-xs text-muted-foreground truncate">{photo ? photo.name : "Tap to pick a photo from your phone"}</div>
               </div>
               <input
@@ -85,7 +112,7 @@ function EditArtistDialog({
             </label>
             <div className="flex gap-4 text-xs text-muted-foreground">
               {photo && <button type="button" className="underline" onClick={() => setPhoto(null)}>Keep the old picture</button>}
-              {!photo && artist.image_url && !removePhoto && (
+              {!photo && artist?.image_url && !removePhoto && (
                 <button type="button" className="underline" onClick={() => setRemovePhoto(true)}>Remove picture</button>
               )}
               {removePhoto && <button type="button" className="underline" onClick={() => setRemovePhoto(false)}>Undo remove</button>}
@@ -115,7 +142,7 @@ function EditArtistDialog({
 
           <div className="flex gap-2 pt-2">
             <Button type="button" variant="secondary" className="flex-1" onClick={onClose} disabled={busy}>Cancel</Button>
-            <Button type="submit" className="flex-1" disabled={busy}>{busy && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Save</Button>
+            <Button type="submit" className="flex-1" disabled={busy}>{busy && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}{creating ? "Create artist" : "Save"}</Button>
           </div>
         </form>
       </DialogContent>
@@ -223,6 +250,7 @@ export function ArtistsPanel({ refreshKey, onChanged }: { refreshKey: number; on
   const [loading, setLoading] = useState(true);
   const [edit, setEdit] = useState<ArtistRow | null>(null);
   const [del, setDel] = useState<ArtistRow | null>(null);
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -243,10 +271,16 @@ export function ArtistsPanel({ refreshKey, onChanged }: { refreshKey: number; on
 
   return (
     <div className="space-y-3">
-      {edit && <EditArtistDialog artist={edit} onClose={() => setEdit(null)} onSaved={onChanged} />}
+      {edit && <ArtistFormDialog artist={edit} onClose={() => setEdit(null)} onSaved={onChanged} />}
+      {creating && (
+        <ArtistFormDialog artist={null} existingNames={artists.map((a) => a.name)} onClose={() => setCreating(false)} onSaved={onChanged} />
+      )}
       {del && <DeleteArtistDialog artist={del} onClose={() => setDel(null)} onDeleted={onChanged} />}
-      <h3 className="text-sm font-semibold tracking-wider">ARTISTS</h3>
-      {artists.length === 0 && <p className="text-sm text-muted-foreground">No artists yet. They are created automatically when you publish a song.</p>}
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold tracking-wider">ARTISTS</h3>
+        <Button size="sm" onClick={() => setCreating(true)}><UserPlus className="w-4 h-4 mr-1.5" /> New artist</Button>
+      </div>
+      {artists.length === 0 && <p className="text-sm text-muted-foreground">No artists yet. Tap New artist to add one.</p>}
       {artists.map((a) => (
         <div key={a.id} className="glass rounded-xl p-3 flex items-center gap-3">
           {a.image_url ? (
