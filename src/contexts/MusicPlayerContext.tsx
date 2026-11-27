@@ -4,6 +4,8 @@ import { useSongsFromDB } from "@/hooks/useSongsFromDB";
 import { useDeviceSync } from "@/hooks/useDeviceSync";
 import { useOnline } from "@/hooks/useOnline";
 import { Track } from "@/lib/tracks";
+import { onOutputChange } from "@/lib/audioOutputs";
+import { toast } from "@/hooks/use-toast";
 
 type BaseEngine = ReturnType<typeof usePlaybackEngine>;
 type Sync = ReturnType<typeof useDeviceSync>;
@@ -103,6 +105,17 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   };
   const applyStateRef = useRef(applyState);
   applyStateRef.current = applyState;
+
+  // Bluetooth speakers and headphones: say when one connects or drops, like Spotify does.
+  useEffect(() => onOutputChange(({ connected, device }) => {
+    const what = device.kind === "bluetooth" ? "Bluetooth" : "Headphones";
+    toast({
+      title: connected ? `${what} connected: ${device.name}` : `${device.name} disconnected`,
+      description: connected
+        ? "Music now plays there. Tap the speaker icon in the player to choose another output."
+        : "Music is back on this phone.",
+    });
+  }), []);
 
   useEffect(() => {
     const pb = sync.playback;

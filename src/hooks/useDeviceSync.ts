@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { activeOutputLabel, onOutputChange } from "@/lib/audioOutputs";
 import { Capacitor } from "@capacitor/core";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -90,6 +91,8 @@ function getOrCreateClientId(): string {
 
 async function detectOutputLabel(): Promise<string> {
   try {
+    const native = await activeOutputLabel();
+    if (native) return native;
     if (!navigator.mediaDevices?.enumerateDevices) return "This device";
     const devices = await navigator.mediaDevices.enumerateDevices();
     const outputs = devices.filter((d) => d.kind === "audiooutput");
@@ -197,8 +200,10 @@ export function useDeviceSync() {
     const interval = window.setInterval(update, 30_000);
     const onDeviceChange = () => update();
     navigator.mediaDevices?.addEventListener?.("devicechange", onDeviceChange);
+    const stopNative = onOutputChange(() => update());
     return () => {
       window.clearInterval(interval);
+      stopNative();
       navigator.mediaDevices?.removeEventListener?.("devicechange", onDeviceChange);
     };
   }, [device?.id]);

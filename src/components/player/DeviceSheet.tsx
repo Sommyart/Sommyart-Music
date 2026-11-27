@@ -1,6 +1,7 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Smartphone, Monitor, Tablet, Volume2, Bluetooth, Check, Trash2, Pencil } from "lucide-react";
+import { Smartphone, Monitor, Tablet, Volume2, Bluetooth, Check, Trash2, Pencil, Headphones, Usb, Speaker } from "lucide-react";
+import { useAudioOutputs, unlockWebOutputNames, canPickOutputOnWeb, type AudioOutput } from "@/lib/audioOutputs";
 import { useMusicPlayerContext } from "@/contexts/MusicPlayerContext";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -33,10 +34,88 @@ function timeAgo(iso: string): string {
   return `${Math.floor(h / 24)}d ago`;
 }
 
+function outputKindIcon(o: AudioOutput) {
+  if (o.kind === "bluetooth") return Bluetooth;
+  if (o.kind === "wired") return Headphones;
+  if (o.kind === "usb") return Usb;
+  return Speaker;
+}
+
+/** Speakers and headphones on this device (phone speaker, Bluetooth, wired), like Spotify's device list. */
+function ThisDeviceOutputs({ open }: { open: boolean }) {
+  const { outputs, active, native, choose, refresh } = useAudioOutputs(open);
+  const [busy, setBusy] = useState(false);
+  const webCan = !native && canPickOutputOnWeb();
+  if (!native && !webCan) return null;
+
+  const pick = async (o: AudioOutput | null) => {
+    setBusy(true);
+    try {
+      const r = await choose(o);
+      if (r === "picker") toast({ title: "Choose where to play", description: "Pick your speaker or headphones in the list Android just opened." });
+      else if (r === "bluetooth-settings") toast({ title: "Connect in Bluetooth settings", description: "Turn on your speaker or headphones and tap it there. Music moves to it once it connects." });
+      else toast({ title: "Switched", description: `Playing through ${o?.name}.` });
+    } catch (e: any) {
+      toast({ title: "Could not switch", description: e?.message, variant: "destructive" });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const unlock = async () => {
+    const ok = await unlockWebOutputNames();
+    if (!ok) toast({ title: "Not allowed", description: "Your browser did not share the list of speakers.", variant: "destructive" });
+    refresh();
+  };
+
+  return (
+    <div className="mt-4 space-y-2">
+      <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Sound on this device</p>
+      {outputs.map((o) => {
+        const Icon = outputKindIcon(o);
+        const on = active?.id === o.id || (!!active && active.kind === o.kind && active.name === o.name);
+        return (
+          <button
+            key={o.id}
+            type="button"
+            disabled={busy || on}
+            onClick={() => pick(o)}
+            className={cn(
+              "w-full rounded-lg border p-3 flex items-center gap-3 text-left transition-all",
+              on ? "border-primary bg-primary/10" : "border-border/40 hover:border-primary/40",
+            )}
+          >
+            <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center shrink-0", on ? "bg-primary/20 text-primary" : "bg-secondary/50 text-muted-foreground")}>
+              <Icon size={18} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">{o.name}</p>
+              <p className="text-[11px] text-muted-foreground">
+                {on ? "Playing here" : o.kind === "bluetooth" ? "Bluetooth" : o.kind === "speaker" ? "Speaker" : o.kind === "usb" ? "USB" : "Headphones"}
+              </p>
+            </div>
+            {on && <Check size={18} className="text-primary" />}
+          </button>
+        );
+      })}
+      {native ? (
+        <Button variant="outline" className="w-full h-9 text-xs border-primary/40" disabled={busy} onClick={() => pick(null)}>
+          <Bluetooth className="w-4 h-4 mr-1.5" /> Connect a Bluetooth speaker or headphones
+        </Button>
+      ) : outputs.length === 0 ? (
+        <Button variant="outline" className="w-full h-9 text-xs border-primary/40" onClick={unlock}>
+          <Speaker className="w-4 h-4 mr-1.5" /> Show my speakers and headphones
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
 export function DeviceSheet({ trigger }: Props) {
   const { devices, thisDevice, activeDevice, transferTo, renameDevice, removeDevice, activeTrack } = useMusicPlayerContext();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
+  const [open, setOpen] = useState(false);
 
   const startEdit = (id: string, current: string) => {
     setEditingId(id);
@@ -53,7 +132,7 @@ export function DeviceSheet({ trigger }: Props) {
   };
 
   return (
-    <Sheet>
+    <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>{trigger}</SheetTrigger>
       <SheetContent side="bottom" className="bg-background/95 backdrop-blur border-primary/30 max-h-[80vh] overflow-y-auto">
         <SheetHeader>
@@ -70,7 +149,10 @@ export function DeviceSheet({ trigger }: Props) {
           )}
         </p>
 
-        <div className="space-y-2 mt-4">
+        <ThisDeviceOutputs open={open} />
+
+        <p className="text-[11px] uppercase tracking-wider text-muted-foreground mt-5">Your devices with Sommyart Music</p>
+        <div className="space-y-2 mt-2">
           {devices.length === 0 && (
             <p className="text-center text-sm text-muted-foreground py-8">
               No other devices yet. Sign in on a PC or another phone to see it here.

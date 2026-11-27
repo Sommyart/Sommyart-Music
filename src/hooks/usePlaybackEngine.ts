@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { setPlaybackElement } from "@/lib/audioOutputs";
 import { Track } from "@/lib/tracks";
 import { extractCoverArt } from "@/lib/extractCoverArt";
 import { autoCacheTrack, cachedPlayableUrl, resolvePlayableUrl } from "@/lib/offlineAudio";
@@ -297,6 +298,7 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
     const audio = new Audio();
     audio.preload = "metadata";
     audioRef.current = audio;
+    setPlaybackElement(audio);
 
     const onTime = () => {
       setCurrentTime(audio.currentTime);
