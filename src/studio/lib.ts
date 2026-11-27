@@ -70,6 +70,9 @@ export async function resolveArtist(name: string, artists: Artist[]): Promise<st
   const clean = name.trim();
   const found = artists.find((a) => a.name.toLowerCase() === clean.toLowerCase());
   if (found) return found.id;
+  // The list can be stale (an artist made a moment ago with "New"), so check the database first.
+  const { data: existing } = await supabase.from("artists").select("id").ilike("name", clean).limit(1).maybeSingle();
+  if (existing) return existing.id;
   const { data, error } = await supabase.from("artists").insert({ name: clean }).select("id").single();
   if (error) throw new Error(`Could not create artist: ${error.message}`);
   return data.id;
