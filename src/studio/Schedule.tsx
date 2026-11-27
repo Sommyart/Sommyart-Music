@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { CalendarClock, Loader2, X } from "lucide-react";
+import { CalendarClock, Check, Loader2, Pencil, Send, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -82,6 +83,8 @@ type Row = {
 export function ScheduledList() {
   const [rows, setRows] = useState<Row[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
 
   const load = async () => {
     const since = new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString();
@@ -110,12 +113,36 @@ export function ScheduledList() {
     load();
   };
 
+  const saveTime = async (id: string) => {
+    let when: string;
+    try { when = releaseTime(editValue); } catch (err: any) { return toast.error(err.message); }
+    setBusyId(id);
+    const { error } = await db.from("scheduled_releases").update({ release_at: when }).eq("id", id).eq("status", "pending");
+    setBusyId(null);
+    if (error) return toast.error("Could not change the time", { description: error.message });
+    toast.success("Release time changed", { description: `Goes live ${formatWhen(when)}.` });
+    setEditId(null);
+    load();
+  };
+
+  const publishNow = async (r: Row) => {
+    const name = r.album ? r.album.title : r.songs[0]?.title;
+    if (!window.confirm(`Publish "${name}" now? Listeners will be notified straight away.`)) return;
+    setBusyId(r.id);
+    const { error } = await db.rpc("release_schedule_now", { p_id: r.id });
+    setBusyId(null);
+    if (error) return toast.error("Could not publish", { description: error.message });
+    toast.success("Published", { description: `"${name}" is live for all listeners.` });
+    load();
+  };
+
   if (!rows.length) return null;
   return (
     <div className="space-y-2 pt-2">
       <h3 className="text-sm font-display tracking-wider flex items-center gap-2"><CalendarClock className="w-4 h-4 text-primary" /> Scheduled</h3>
       {rows.map((r) => (
-        <div key={r.id} className="glass rounded-xl p-3 flex items-center gap-3">
+        <div key={r.id} className="glass rounded-xl">
+        <div className="p-3 flex items-center gap-3">
           <div className="flex-1 min-w-0">
             <div className="text-sm font-medium truncate">
               {r.album ? `${r.album.title} (album, ${r.songs.length} songs)` : r.songs[0]?.title}
@@ -124,11 +151,20 @@ export function ScheduledList() {
               {r.artist_name} · {r.status === "failed" ? <span className="text-destructive">Failed: {r.error}</span> : formatWhen(r.release_at)}
             </div>
           </div>
-          {r.status === "pending" && (
-            <button type="button" onClick={() => cancel(r.id)} disabled={busyId === r.id} className="p-2 text-muted-foreground hover:text-destructive" aria-label="Cancel scheduled release">
-              {busyId === r.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
-            </button>
-          )}
+          {r.status === "pending" && (busyId === r.id ? <Loader2 className="w-4 h-4 animate-spin text-primary m-2" /> : (
+            <div className="flex items-center">
+              <button type="button" onClick={() => { setEditId(editId === r.id ? null : r.id); setEditValue(toLocalInput(new Date(r.release_at))); }} className="p-2 text-muted-foreground hover:text-primary" aria-label="Change release time"><Pencil className="w-4 h-4" /></button>
+              <button type="button" onClick={() => publishNow(r)} className="p-2 text-muted-foreground hover:text-primary" aria-label="Publish now"><Send className="w-4 h-4" /></button>
+              <button type="button" onClick={() => cancel(r.id)} className="p-2 text-muted-foreground hover:text-destructive" aria-label="Cancel scheduled release"><X className="w-4 h-4" /></button>
+            </div>
+          ))}
+        </div>
+        {editId === r.id && r.status === "pending" && (
+          <div className="flex gap-2 px-3 pb-3">
+            <Input type="datetime-local" value={editValue} min={toLocalInput(new Date())} onChange={(e) => setEditValue(e.target.value)} className="flex-1" aria-label="New release time" />
+            <Button type="button" size="sm" onClick={() => saveTime(r.id)} disabled={busyId === r.id}><Check className="w-4 h-4 mr-1" /> Save</Button>
+          </div>
+        )}
         </div>
       ))}
     </div>
