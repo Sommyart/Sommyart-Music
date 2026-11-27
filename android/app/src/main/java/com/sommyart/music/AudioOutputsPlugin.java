@@ -137,7 +137,7 @@ public class AudioOutputsPlugin extends Plugin {
             if (Build.VERSION.SDK_INT >= 33) {
                 try {
                     AudioAttributes media = new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).build();
-                    List<AudioDeviceInfo> routed = audio.getDevicesForAttributes(media);
+                    List<AudioDeviceInfo> routed = audio.getAudioDevicesForAttributes(media);
                     for (AudioDeviceInfo d : routed) {
                         if (kindOf(d.getType()) != null) { playing = d; break; }
                     }
