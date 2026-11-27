@@ -12,6 +12,7 @@ import {
 } from "./lib";
 import { CollabPicker, saveCollaborators } from "./Collab";
 import { tabFor, useSharedFiles, type SharedBatch } from "./sharedFiles";
+import { ScheduleField, ScheduledList, createSchedule, releaseTime, formatWhen } from "./Schedule";
 
 /* ------------------------------ Shared fields ----------------------------- */
 
@@ -113,6 +114,7 @@ export function SingleUpload({ artists, onPublished, owner }: { artists: Artist[
   const [description, setDescription] = useState("");
   const [collabs, setCollabs] = useState<string[]>([]);
   const [cover, setCover] = useState<File | null>(null);
+  const [releaseAt, setReleaseAt] = useState("");
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState("");
   const primaryId = owner?.artistId ?? artists.find((a) => a.name.toLowerCase() === artist.trim().toLowerCase())?.id ?? null;
@@ -134,14 +136,27 @@ export function SingleUpload({ artists, onPublished, owner }: { artists: Artist[
   const publish = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file) return toast.error("Choose a song file first");
+    let when: string | null = null;
+    try { when = releaseAt ? releaseTime(releaseAt) : null; } catch (err: any) { return toast.error(err.message); }
     setBusy(true);
     try {
       setStep("Uploading cover…");
       const coverUrl = cover ? await uploadFile("covers", cover, title + "_cover", owner?.folder) : null;
       setStep("Uploading song…");
       const audioUrl = await uploadFile("music", file, title, owner?.folder);
-      setStep("Publishing…");
+      setStep(when ? "Scheduling…" : "Publishing…");
       const artistId = owner ? owner.artistId : await resolveArtist(artist, artists);
+      if (when) {
+        if (!artistId) throw new Error("Choose an artist");
+        await createSchedule({
+          release_at: when, artist_id: artistId, artist_name: owner ? owner.artistName : artist.trim(), album: null,
+          songs: [{ title: title.trim(), audio_url: audioUrl, cover_art_url: coverUrl, genre: genre.trim() || null, description: description.trim() || null }],
+          collab_ids: collabs.filter((c) => c !== artistId),
+        });
+        toast.success("Scheduled", { description: `"${title}" goes live ${formatWhen(when)}.` });
+        setFile(null); setTitle(""); setGenre(""); setDescription(""); setCollabs([]); setCover(null); setReleaseAt("");
+        return;
+      }
       const { data: row, error } = await supabase.from("songs").insert({
         title: title.trim(), artist: owner ? owner.artistName : artist.trim(), artist_id: artistId,
         genre: genre.trim() || null, description: description.trim() || null, audio_url: audioUrl, cover_art_url: coverUrl,
@@ -196,9 +211,11 @@ export function SingleUpload({ artists, onPublished, owner }: { artists: Artist[
         <Textarea id="sdesc" rows={3} maxLength={1500} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What is this song about? (optional)" />
       </div>
       <CoverPicker file={cover} onChange={setCover} />
+      <ScheduleField value={releaseAt} onChange={setReleaseAt} disabled={busy} />
       <Button type="submit" className="w-full h-12 text-base" disabled={busy || !file}>
-        {busy ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{step}</> : "Publish song"}
+        {busy ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{step}</> : releaseAt ? "Schedule song" : "Publish song"}
       </Button>
+      <ScheduledList />
     </form>
   );
 }
@@ -212,6 +229,7 @@ export function AlbumUpload({ artists, onPublished, owner }: { artists: Artist[]
   const [description, setDescription] = useState("");
   const [collabs, setCollabs] = useState<string[]>([]);
   const [cover, setCover] = useState<File | null>(null);
+  const [releaseAt, setReleaseAt] = useState("");
   const primaryId = owner?.artistId ?? artists.find((a) => a.name.toLowerCase() === artist.trim().toLowerCase())?.id ?? null;
   const [tracks, setTracks] = useState<TrackDraft[]>([]);
   const [busy, setBusy] = useState(false);
@@ -253,6 +271,8 @@ export function AlbumUpload({ artists, onPublished, owner }: { artists: Artist[]
     e.preventDefault();
     if (tracks.length === 0) return toast.error("Add at least one song");
     if (tracks.some((t) => !t.title.trim())) return toast.error("Every song needs a title");
+    let when: string | null = null;
+    try { when = releaseAt ? releaseTime(releaseAt) : null; } catch (err: any) { return toast.error(err.message); }
     setBusy(true);
     const uploaded: { title: string; url: string; n: number }[] = [];
     try {
@@ -273,9 +293,21 @@ export function AlbumUpload({ artists, onPublished, owner }: { artists: Artist[]
         }
       }
 
-      setStep("Publishing album…");
+      setStep(when ? "Scheduling album…" : "Publishing album…");
       const artistId = owner ? owner.artistId : await resolveArtist(artist, artists);
       const artistName = owner ? owner.artistName : artist.trim();
+      if (when) {
+        if (!artistId) throw new Error("Choose an artist");
+        await createSchedule({
+          release_at: when, artist_id: artistId, artist_name: artistName,
+          album: { title: albumTitle.trim(), cover_art_url: coverUrl, description: description.trim() || null, genre: genre.trim() || null },
+          songs: uploaded.map((u) => ({ title: u.title, audio_url: u.url, cover_art_url: coverUrl, genre: genre.trim() || null, track_number: u.n })),
+          collab_ids: collabs.filter((c) => c !== artistId),
+        });
+        toast.success("Album scheduled", { description: `"${albumTitle}" goes live ${formatWhen(when)}.` });
+        setAlbumTitle(""); setGenre(""); setDescription(""); setCollabs([]); setCover(null); setTracks([]); setReleaseAt("");
+        return;
+      }
       const now = new Date().toISOString();
       const { data: album, error: aErr } = await supabase
         .from("albums")
@@ -371,9 +403,11 @@ export function AlbumUpload({ artists, onPublished, owner }: { artists: Artist[]
         )}
       </div>
 
+      <ScheduleField value={releaseAt} onChange={setReleaseAt} disabled={busy} />
       <Button type="submit" className="w-full h-12 text-base" disabled={busy || tracks.length === 0}>
-        {busy ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{step}</> : `Publish album (${tracks.length} songs)`}
+        {busy ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{step}</> : `${releaseAt ? "Schedule" : "Publish"} album (${tracks.length} songs)`}
       </Button>
+      <ScheduledList />
     </form>
   );
 }
