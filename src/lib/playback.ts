@@ -38,6 +38,8 @@ export interface PersistedPlayback {
   repeat: RepeatMode;
   volume: number;
   playbackRate: number;
+  /** When this was saved (ms). Lets the app prefer the newer of this phone's save and the server's. */
+  savedAt?: number;
 }
 
 /** Fisher–Yates shuffle of context indices, with `first` pinned to the front. */
@@ -65,7 +67,7 @@ export function loadPersisted(): PersistedPlayback | null {
 
 export function savePersisted(state: PersistedPlayback) {
   try {
-    localStorage.setItem(PERSIST_KEY, JSON.stringify(state));
+    localStorage.setItem(PERSIST_KEY, JSON.stringify({ ...state, savedAt: Date.now() }));
   } catch {
     /* storage full / private mode — non-fatal */
   }

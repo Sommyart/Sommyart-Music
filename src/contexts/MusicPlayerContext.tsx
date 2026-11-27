@@ -5,6 +5,7 @@ import { useDeviceSync } from "@/hooks/useDeviceSync";
 import { useOnline } from "@/hooks/useOnline";
 import { Track } from "@/lib/tracks";
 import { onOutputChange } from "@/lib/audioOutputs";
+import { loadPersisted } from "@/lib/playback";
 import { toast } from "@/hooks/use-toast";
 
 type BaseEngine = ReturnType<typeof usePlaybackEngine>;
@@ -63,12 +64,23 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   const applyState = (pb: NonNullable<typeof sync.playback>, firstAfterLaunch: boolean) => {
     if (!sync.device) return;
     // Latency compensation so a takeover resumes at the right position (server clock, not this device's clock).
-    const elapsed = pb.is_playing
+    // On launch the saved state may say "playing" from when the app was closed hours ago; counting
+    // that time would jump past the end of the song. Only live takeovers add the elapsed time.
+    const elapsed = pb.is_playing && !firstAfterLaunch
       ? Math.max(0, (sync.serverNow() - new Date(pb.updated_at).getTime()) / 1000)
       : 0;
     const rate = Number(pb.playback_rate) || 1;
 
     const songId = pb.track_id ?? pb.song_id;
+    let position = (Number(pb.position_seconds) || 0) + elapsed * rate;
+    if (firstAfterLaunch) {
+      // This phone saves the exact spot when it is closed; the server only hears every so often.
+      // For the same song, keep whichever spot is newer.
+      const local = loadPersisted();
+      if (local?.currentTrackId === songId && (local.savedAt ?? 0) >= new Date(pb.updated_at).getTime()) {
+        position = local.position;
+      }
+    }
     // What the push effect below would compute for this same state: do not echo it back.
     lastPushKeyRef.current = [
       songId,
@@ -85,7 +97,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     applyingRemoteRef.current = true;
     player.applyRemoteState({
       songId,
-      positionSeconds: (Number(pb.position_seconds) || 0) + elapsed * rate,
+      positionSeconds: position,
       isPlaying: pb.is_playing && !(firstAfterLaunch && pb.active_device_id === sync.device.id),
       playbackRate: rate,
       shuffle: pb.shuffle,

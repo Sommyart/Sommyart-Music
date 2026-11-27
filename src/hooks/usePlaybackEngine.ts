@@ -1012,13 +1012,26 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
     return () => window.clearTimeout(id);
   }, [restorePending, isPlaying]);
 
-  // ---------- Persist (throttled: only meaningful changes + position every 5s) ----------
+  // ---------- Persist (throttled: only meaningful changes + position every 4s) ----------
   const lastSaveRef = useRef(0);
+  const snapshotRef = useRef<Parameters<typeof savePersisted>[0] | null>(null);
   useEffect(() => {
     if (!persistReadyRef.current) return;
+    snapshotRef.current = {
+      contextType: context.type,
+      contextId: context.id,
+      contextTrackIds: contextTracks.map((t) => t.id),
+      contextIndex,
+      queueIds: queue.map((t) => t.id),
+      currentTrackId: rawCurrent?.id ?? null,
+      source,
+      position: currentTime,
+      shuffle,
+      repeat,
+      volume,
+      playbackRate,
+    };
     const now = Date.now();
-    const meaningful = true;
-    if (!meaningful) return;
     if (now - lastSaveRef.current < 4000 && isPlaying) return;
     lastSaveRef.current = now;
     savePersisted({
@@ -1049,6 +1062,33 @@ export function usePlaybackEngine(library: Track[], audioEnabled: boolean = true
     currentTime,
     isPlaying,
   ]);
+
+  // Save the exact spot the moment the app is closed, minimised or the phone is locked,
+  // so coming back always continues where you left off (not up to 4 seconds earlier).
+  useEffect(() => {
+    const saveNow = () => {
+      const snap = snapshotRef.current;
+      if (!snap || !persistReadyRef.current) return;
+      const audio = audioRef.current;
+      const sameSong = !!audio && loadedTrackIdRef.current === snap.currentTrackId && audio.readyState >= 1;
+      savePersisted({ ...snap, position: sameSong ? audio!.currentTime : snap.position });
+    };
+    const onHide = () => { if (document.visibilityState === "hidden") saveNow(); };
+    document.addEventListener("visibilitychange", onHide);
+    window.addEventListener("pagehide", saveNow);
+    let removeNative: (() => void) | null = null;
+    import("@capacitor/app")
+      .then(({ App }) => App.addListener("pause", saveNow))
+      .then((h) => { removeNative = () => { h.remove(); }; })
+      .catch(() => {});
+    const t = window.setInterval(() => { if (audioRef.current && !audioRef.current.paused) saveNow(); }, 15000);
+    return () => {
+      document.removeEventListener("visibilitychange", onHide);
+      window.removeEventListener("pagehide", saveNow);
+      removeNative?.();
+      window.clearInterval(t);
+    };
+  }, []);
 
   const currentTrackIndex = useMemo(
     () => (rawCurrent ? library.findIndex((t) => t.id === rawCurrent.id) : -1),
