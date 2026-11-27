@@ -1,4 +1,5 @@
 import { ListMusic, Play, Trash2, X, Music2, GripVertical, ListEnd } from "lucide-react";
+import { MarqueeText } from "@/components/MarqueeText";
 import {
   DndContext,
   KeyboardSensor,
@@ -42,7 +43,7 @@ function RowBody({ track, subtitle, active, onPlay }: { track: Track; subtitle?:
         <img src={track.coverUrl} alt="" className="w-full h-full object-cover" />
       </div>
       <div className="min-w-0">
-        <p className={cn("text-sm truncate", active ? "text-primary neon-text" : "text-foreground")}>{track.title}</p>
+        <MarqueeText text={track.title} active={active} className={cn("text-sm", active ? "text-primary neon-text" : "text-foreground")} />
         <p className="text-xs text-muted-foreground truncate">
           {track.artist}
           {subtitle ? ` · ${subtitle}` : ""}

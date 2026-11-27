@@ -1,4 +1,5 @@
 import { ChevronDown, Mic2, Volume2, Bluetooth, Cast, ListPlus, ListMusic, Share2 } from "lucide-react";
+import { MarqueeText } from "@/components/MarqueeText";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { HolographicArtwork } from "@/components/player/HolographicArtwork";
@@ -141,8 +142,8 @@ const PlayerScreen = () => {
         <div className="relative px-6 pb-10 pt-2 space-y-4 lg:flex-none lg:w-1/2 lg:px-0">
           <div className="flex items-center gap-2">
             <div className="flex-1 min-w-0 text-center lg:text-left">
-              <h1 className="text-xl font-display font-bold tracking-wide text-foreground neon-text truncate">
-                {track?.title || "No Track"}
+              <h1 className="text-xl font-display font-bold tracking-wide text-foreground neon-text">
+                <MarqueeText text={track?.title || "No Track"} />
               </h1>
               <p className="text-sm text-muted-foreground mt-1 truncate">{track?.artist || "—"}</p>
             </div>

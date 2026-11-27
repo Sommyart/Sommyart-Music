@@ -1,4 +1,5 @@
 import { Download, Trash2, Play, Pause, HardDrive } from "lucide-react";
+import { MarqueeText } from "@/components/MarqueeText";
 import { useDownloadContext } from "@/contexts/DownloadContext";
 import { useMusicPlayerContext } from "@/contexts/MusicPlayerContext";
 import { useState, useEffect } from "react";
@@ -30,7 +31,7 @@ function DownloadedTrackItem({ track, list, onRemove }: { track: Track & { downl
           <img src={displayCover} alt={track.title} className="w-full h-full object-cover" />
         </div>
         <div className="flex-1 text-left min-w-0">
-          <p className={`text-sm font-medium truncate ${isActive ? "text-primary neon-text" : "text-foreground"}`}>{track.title}</p>
+          <MarqueeText text={track.title} active={isActive} className={`text-sm font-medium ${isActive ? "text-primary neon-text" : "text-foreground"}`} />
           <p className="text-xs text-muted-foreground truncate">{track.artist}</p>
         </div>
         <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isActive ? "text-primary" : "text-muted-foreground"}`}>

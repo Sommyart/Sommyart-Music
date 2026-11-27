@@ -1,4 +1,5 @@
 import { Play, Pause, Download, Heart, MoreVertical, ListMusic, ListEnd, ListPlus, CornerDownRight, Share2, Trash2 } from "lucide-react";
+import { MarqueeText } from "@/components/MarqueeText";
 import { DownloadedBadge } from "@/components/DownloadCollectionButton";
 import { Track } from "@/lib/tracks";
 import { useState, useEffect } from "react";
@@ -64,9 +65,7 @@ export function TrackItem({ track, index, isActive, isPlaying, onPlay }: Props) 
           <img src={displayCover} alt={`${track.title} artwork`} className="w-full h-full object-cover" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className={`text-sm font-medium truncate ${isActive ? "text-primary neon-text" : "text-foreground"}`}>
-            {track.title}
-          </p>
+          <MarqueeText text={track.title} active={isActive} className={`text-sm font-medium ${isActive ? "text-primary neon-text" : "text-foreground"}`} />
           <div className="flex items-center gap-1.5">
             {(downloaded || downloading) && <DownloadedBadge downloading={downloading} />}
             <p className="text-xs text-muted-foreground truncate">{track.artist}</p>

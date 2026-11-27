@@ -1,4 +1,5 @@
 import { Play, Pause, SkipBack, SkipForward } from "lucide-react";
+import { MarqueeText } from "@/components/MarqueeText";
 import { Track } from "@/lib/tracks";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useState } from "react";
@@ -77,7 +78,7 @@ export function MiniPlayer({ track, isPlaying, onTogglePlay, onNext, onPrev }: P
         </div>
 
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium truncate text-foreground">{track.title}</p>
+          <MarqueeText text={track.title} className="text-sm font-medium text-foreground" />
           <p className="text-xs text-muted-foreground truncate">{track.artist}</p>
         </div>
 
