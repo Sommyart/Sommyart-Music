@@ -5,7 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Copy, Loader2, LogOut, Mic2, Pencil, Trash2, AlertCircle, KeyRound, Music2, Disc3, Users, Inbox, Megaphone, Library as LibraryIcon } from "lucide-react";
+import { Copy, Loader2, LogOut, Mic2, Pencil, Trash2, AlertCircle, KeyRound, Music2, Disc3, Users, Inbox, Megaphone, BarChart3, Library as LibraryIcon } from "lucide-react";
 
 /** A Studio tab: icon above a short name, roomy enough to read on a phone. */
 const TAB = "flex-col gap-1 h-auto py-2 px-1 text-xs whitespace-normal";
@@ -17,6 +17,7 @@ import { ArtistsPanel } from "./Artists";
 import { SingleUpload, AlbumUpload } from "./Uploads";
 import { RequestsPanel, usePendingCount } from "./Requests";
 import { AnnouncePanel } from "./Announce";
+import { AnalyticsPanel } from "./Analytics";
 import { ApplyForm, WaitingScreen, ArtistPortal, Application } from "./ArtistAccess";
 import { kosherTracks } from "@/lib/tracks";
 import { useSharedTab } from "./sharedFiles";
@@ -381,7 +382,7 @@ export default function Studio() {
       <main className="max-w-2xl mx-auto px-4 pt-6">
         <Tabs value={tab} onValueChange={setTab}>
           {/* Three per row on phones (two rows), all in one row on wider screens; icon above each name. */}
-          <TabsList className={`grid w-full h-auto gap-1 mb-6 grid-cols-3 ${isAdmin ? "sm:grid-cols-6" : "sm:grid-cols-5"}`}>
+          <TabsList className={`grid w-full h-auto gap-1 mb-6 grid-cols-3 ${isAdmin ? "sm:grid-cols-7" : "sm:grid-cols-5"}`}>
             <TabsTrigger value="single" className={TAB}><Music2 className="w-4 h-4" />Single</TabsTrigger>
             <TabsTrigger value="album" className={TAB}><Disc3 className="w-4 h-4" />Album</TabsTrigger>
             <TabsTrigger value="library" className={TAB}><LibraryIcon className="w-4 h-4" />Library</TabsTrigger>
@@ -393,6 +394,7 @@ export default function Studio() {
               )}
             </TabsTrigger>
             {isAdmin && <TabsTrigger value="announce" className={TAB}><Megaphone className="w-4 h-4" />Announce</TabsTrigger>}
+            {isAdmin && <TabsTrigger value="stats" className={TAB}><BarChart3 className="w-4 h-4" />Stats</TabsTrigger>}
           </TabsList>
           <TabsContent value="single"><SingleUpload artists={artists} onPublished={bump} /></TabsContent>
           <TabsContent value="album"><AlbumUpload artists={artists} onPublished={bump} /></TabsContent>
@@ -400,6 +402,7 @@ export default function Studio() {
           <TabsContent value="artists"><ArtistsPanel refreshKey={refreshKey} onChanged={bump} /></TabsContent>
           <TabsContent value="requests"><RequestsPanel refreshKey={refreshKey} onChanged={bump} /></TabsContent>
           {isAdmin && <TabsContent value="announce"><AnnouncePanel /></TabsContent>}
+          {isAdmin && <TabsContent value="stats"><AnalyticsPanel /></TabsContent>}
         </Tabs>
         <p className="text-xs text-muted-foreground text-center mt-10">
           Published songs appear in Sommyart Music straight away, and listeners are notified in real time.
