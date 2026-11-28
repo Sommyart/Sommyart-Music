@@ -1,5 +1,6 @@
 import { useRef, useEffect } from "react";
 import { Track } from "@/lib/tracks";
+import { useSongCover } from "@/hooks/useSongCover";
 
 interface Props {
   track: Track | null;
@@ -8,6 +9,9 @@ interface Props {
 
 export function HolographicArtwork({ track, isPlaying }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  // Show the song's own cover (album songs use the album cover); the hologram only when there is none.
+  const cover = useSongCover({ audioUrl: track?.audioUrl ?? "", coverUrl: track?.coverUrl });
+  const showCover = !!track && cover !== "/images/logo.png";
 
   useEffect(() => {
     const video = videoRef.current;
@@ -17,7 +21,7 @@ export function HolographicArtwork({ track, isPlaying }: Props) {
     } else {
       video.pause();
     }
-  }, [isPlaying]);
+  }, [isPlaying, showCover]);
 
   return (
     <div className="relative flex items-center justify-center py-8" style={{ height: 280 }}>
@@ -58,14 +62,18 @@ export function HolographicArtwork({ track, isPlaying }: Props) {
         }`}
         style={{ width: 180, height: 180 }}
       >
-        <video
-          ref={videoRef}
-          src="/videos/player-bg.mp4"
-          muted
-          loop
-          playsInline
-          className="w-full h-full object-cover"
-        />
+        {showCover ? (
+          <img src={cover} alt={track ? `${track.title} cover` : ""} className="w-full h-full object-cover" />
+        ) : (
+          <video
+            ref={videoRef}
+            src="/videos/player-bg.mp4"
+            muted
+            loop
+            playsInline
+            className="w-full h-full object-cover"
+          />
+        )}
         <div className="absolute inset-0 holographic-shimmer" />
 
         {/* Pulse overlay when playing */}
