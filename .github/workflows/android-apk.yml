@@ -127,16 +127,23 @@ jobs:
             }
 
       - name: Name the Studio APK
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
         run: |
+          NOTE=$(printf '%s' "$COMMIT_MSG" | head -n1 | tr -d '\r' | cut -c1-140)
+          [ -z "$NOTE" ] && NOTE="Improvements and fixes"
           mkdir -p studio-out
           cp android/app/build/outputs/apk/studio/release/app-studio-release.apk studio-out/SommyartStudio.apk
           cp studio-out/SommyartStudio.apk "studio-out/SommyartStudio-1.0.${{ github.run_number }}.apk"
           {
             echo "Latest Android build of Sommyart Studio (uploads), version 1.0.${{ github.run_number }}."
             echo
+            echo "What's new: $NOTE"
+            echo
             echo 'Download **SommyartStudio.apk** below on your Android phone and open it. It installs'
             echo 'next to Sommyart Music. To upload a song, share it from your file manager to Sommyart Studio.'
           } > studio-out/release-notes.md
+          jq -n --argjson build ${{ github.run_number }} --arg notes "$NOTE" '{build: $build, notes: $notes}' > studio-out/latest.json
           ls -lh studio-out
 
       - name: Publish Studio to its own download page
@@ -150,3 +157,4 @@ jobs:
           files: |
             studio-out/SommyartStudio.apk
             studio-out/SommyartStudio-1.0.${{ github.run_number }}.apk
+            studio-out/latest.json

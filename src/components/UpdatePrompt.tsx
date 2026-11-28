@@ -2,7 +2,7 @@ import { Download, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { useAppUpdate } from "@/hooks/useAppUpdate";
+import { useAppUpdate, APP_NAME } from "@/hooks/useAppUpdate";
 
 /** "New version available" pop-up for the installed Android app. Downloads and installs the update inside the app. */
 export function UpdatePrompt() {
@@ -16,7 +16,7 @@ export function UpdatePrompt() {
             <Download className="w-5 h-5 text-primary" /> Update available
           </DialogTitle>
           <DialogDescription>
-            A new version of Sommyart Music is ready (version 1.0.{update?.latest}, you have 1.0.{update?.installed}).
+            A new version of {APP_NAME} is ready (version 1.0.{update?.latest}, you have 1.0.{update?.installed}).
             {update?.notes ? ` What's new: ${update.notes}` : ""}
           </DialogDescription>
         </DialogHeader>
@@ -28,7 +28,7 @@ export function UpdatePrompt() {
         )}
         {phase === "needs-permission" && (
           <p className="text-sm text-muted-foreground">
-            Android needs your OK first. Turn on "Allow from this source" for Sommyart Music on the screen that opened, then come back here. The update will carry on by itself.
+            Android needs your OK first. Turn on "Allow from this source" for {APP_NAME} on the screen that opened, then come back here. The update will carry on by itself.
           </p>
         )}
         {busy && (

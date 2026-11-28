@@ -2,9 +2,14 @@ import { useEffect, useSyncExternalStore } from "react";
 import { Capacitor } from "@capacitor/core";
 import { ApkInstaller } from "@/lib/apkInstaller";
 
-const RELEASE_API = "https://api.github.com/repos/Sommyart/Sommyart-Music/releases/tags/android-latest";
-const LATEST_JSON = "https://github.com/Sommyart/Sommyart-Music/releases/download/android-latest/latest.json";
-const APK_FALLBACK = "https://github.com/Sommyart/Sommyart-Music/releases/download/android-latest/SommyartMusic.apk";
+/** The Studio app is built from the same code (VITE_APP=studio) but has its own download page and file names. */
+const IS_STUDIO = import.meta.env.VITE_APP === "studio";
+export const APP_NAME = IS_STUDIO ? "Sommyart Studio" : "Sommyart Music";
+const TAG = IS_STUDIO ? "studio-latest" : "android-latest";
+const FILE = IS_STUDIO ? "SommyartStudio" : "SommyartMusic";
+const RELEASE_API = `https://api.github.com/repos/Sommyart/Sommyart-Music/releases/tags/${TAG}`;
+const LATEST_JSON = `https://github.com/Sommyart/Sommyart-Music/releases/download/${TAG}/latest.json`;
+const APK_FALLBACK = `https://github.com/Sommyart/Sommyart-Music/releases/download/${TAG}/${FILE}.apk`;
 
 /** Build number baked in by the APK workflow. Empty on the website and in local builds. */
 const INSTALLED_BUILD = Number(import.meta.env.VITE_BUILD_NUMBER) || 0;
@@ -24,11 +29,11 @@ export function parseLatestBuild(release: {
 }): AppUpdate | null {
   let latest = 0;
   for (const a of release.assets ?? []) {
-    const m = /^SommyartMusic-1\.0\.(\d+)\.apk$/.exec(a.name ?? "");
+    const m = new RegExp(`^${FILE}-1\\.0\\.(\\d+)\\.apk$`).exec(a.name ?? "");
     if (m) latest = Math.max(latest, Number(m[1]));
   }
   if (!latest) return null;
-  const main = (release.assets ?? []).find((a) => a.name === "SommyartMusic.apk");
+  const main = (release.assets ?? []).find((a) => a.name === `${FILE}.apk`);
   return { latest, installed: INSTALLED_BUILD, url: main?.browser_download_url || APK_FALLBACK, notes: notesFrom(release.body) };
 }
 

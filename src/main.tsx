@@ -5,6 +5,7 @@ import App from "./App.tsx";
 import "./index.css";
 import { registerServiceWorker } from "./lib/registerServiceWorker";
 import { Toaster as Sonner } from "@/components/ui/sonner";
+import { UpdatePrompt } from "@/components/UpdatePrompt";
 
 // The admin Studio ships from the same codebase but is deployed as its own site
 // (VITE_APP=studio), so the listener app never contains the upload dashboard UI.
@@ -34,6 +35,7 @@ createRoot(document.getElementById("root")!).render(
   isStudio ? (
     <>
       <Sonner />
+      <UpdatePrompt />
       <Suspense fallback={null}>
         <Studio />
       </Suspense>

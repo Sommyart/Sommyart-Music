@@ -4,10 +4,11 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "./lib";
 
 type Day = { day: string; active: number; signups: number };
+type Person = { username: string; display_name: string | null; last_active: string; days_active: number; active_today: boolean };
 type Top = { title: string; artist: string | null; plays: number; listeners: number };
 type Report = {
   total_users: number; dau: number; wau: number; mau: number; new_7d: number;
-  tracked_since: string | null; daily: Day[]; top_songs: Top[];
+  tracked_since: string | null; daily: Day[]; top_songs: Top[]; active_users: Person[];
 };
 
 const RANGES = [7, 30, 90] as const;
@@ -86,6 +87,25 @@ export function AnalyticsPanel() {
           <span>{shortDay(data.daily[0].day)}</span><span>Busiest day: {max} active</span><span>{shortDay(data.daily[data.daily.length - 1].day)}</span>
         </div>
         <p className="text-xs text-muted-foreground">{total} new {total === 1 ? "account" : "accounts"} in this period.</p>
+      </section>
+
+      <section className="glass rounded-2xl p-4 space-y-3">
+        <h2 className="font-semibold text-sm">Who was active ({data.active_users.length} in {range} days)</h2>
+        {data.active_users.length === 0 && <p className="text-sm text-muted-foreground">Nobody yet.</p>}
+        <ul className="divide-y divide-border">
+          {data.active_users.map((u) => (
+            <li key={u.username} className="flex items-center justify-between gap-3 py-2 text-sm">
+              <span className="min-w-0">
+                <span className="font-medium truncate block">{u.username}</span>
+                {u.display_name && <span className="text-xs text-muted-foreground truncate block">{u.display_name}</span>}
+              </span>
+              <span className="text-right shrink-0 text-xs text-muted-foreground">
+                {u.active_today ? <span className="text-primary font-medium">Active today</span> : <>Last seen {shortDay(u.last_active)}</>}
+                <span className="block">{u.days_active} {u.days_active === 1 ? "day" : "days"} active</span>
+              </span>
+            </li>
+          ))}
+        </ul>
       </section>
 
       <section className="glass rounded-2xl p-4 space-y-3">
